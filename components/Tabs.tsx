@@ -1,40 +1,149 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';  // Icon kütüphanesini import et
-import Home from 'screens/Home';
-import Settings from 'screens/Settings';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { TouchableOpacity } from 'react-native';
+import Home from '../screens/Home';
+import Grocery from '../screens/Grocery';
+import MealPlan from '../screens/MealPlan';
+import Progress from '../screens/Progress';
 
 const Tab = createBottomTabNavigator();
 
-export default function Tabs() {
+
+export default function Tabs({ navigation }: any) {
+
+  const ChatButton = () => (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Chat')}
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <MaterialCommunityIcons 
+        name="message-text-outline" 
+        size={24} 
+        color="#A8B5DB" 
+        style={{ 
+          backgroundColor: 'transparent',
+          borderRadius: 20,
+          padding: 8
+        }} 
+      />
+    </TouchableOpacity>
+  );
+
   return (
-    <NavigationContainer>
-      <Tab.Navigator
+    <Tab.Navigator
         screenOptions={{
-          headerShown: false, // Header'ı gizleyebiliriz
-          tabBarStyle: {
-            backgroundColor: '#2f2f2f',  // Tab bar arka plan rengini değiştir
-            borderTopWidth: 0,  // Kenar çizgilerini kaldır
-            paddingBottom: 5,  // Alt boşluk ekle
+          tabBarShowLabel: false,
+          tabBarActiveTintColor: '#FFFFFF',
+          tabBarInactiveTintColor: '#A8B5DB',
+          tabBarItemStyle: {
+            flex: 1,
+            width: "100%",
+            height: "100%",
+            padding: 0,
+            margin: 0
           },
-          tabBarActiveTintColor: '#7400b8',  // Aktif tab'ın rengini beyaz yap
-          tabBarInactiveTintColor: '#aaa',  // Aktif olmayan tab'ların rengini gri yap
+          tabBarStyle: {
+            backgroundColor: "#0f0D23",
+            borderRadius: 50,
+            marginHorizontal: 20,
+            marginBottom: 36,
+            height: 60,
+            position: "absolute",
+            overflow: "hidden",
+            borderWidth: 1,
+            borderColor: "#0f0D23",
+            elevation: 5,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            padding: 0
+          }
         }}
       >
         <Tab.Screen
           name="Home"
           component={Home}
           options={{
-            tabBarIcon: ({ color }) => (
-              <MaterialCommunityIcons name="home" size={24} color={color} />
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons 
+                name="home" 
+                size={size} 
+                color={color} 
+                style={{ 
+                  backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                  borderRadius: 20,
+                  padding: 8
+                }} 
+              />
             ),
           }}
         />
         <Tab.Screen
-          name="Settings"
-          component={Settings}
+          name="Progress"
+          component={Progress}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons 
+                name="chart-line" 
+                size={size} 
+                color={color} 
+                style={{ 
+                  backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                  borderRadius: 20,
+                  padding: 8
+                }} 
+              />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="ChatTab"
+          component={Home} 
+          options={{
+            tabBarButton: () => <ChatButton />
+          }}
+        />
+        <Tab.Screen
+          name="MealPlan"
+          component={MealPlan}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons 
+                name="food-fork-drink" 
+                size={size} 
+                color={color} 
+                style={{ 
+                  backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                  borderRadius: 20,
+                  padding: 8
+                }} 
+              />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Grocery"
+          component={Grocery}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons 
+                name="basket" 
+                size={size} 
+                color={color} 
+                style={{ 
+                  backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                  borderRadius: 20,
+                  padding: 8
+                }} 
+              />
+            ),
+          }}
         />
       </Tab.Navigator>
-    </NavigationContainer>
   );
 }
