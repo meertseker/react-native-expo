@@ -21,12 +21,9 @@ export default function App() {
             name="Chat" 
             component={Chat}
             options={{
-              title: "GainAI",
-              headerStyle: {
-                backgroundColor: '#0f0D23',
-              },
-              headerTintColor: '#fff',
-            }}
+              headerShown: false
+              }
+            }
           />
         </Stack.Navigator>
       </NavigationContainer>
