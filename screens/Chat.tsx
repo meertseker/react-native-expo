@@ -57,10 +57,10 @@ const RecipeAssistantApp = () => {
     setMessages([
       {
         id: '1',
-        text: 'Merhaba! Bugün sana nasıl yardımcı olabilirim? İstediğin bir yemek tarifi var mı?',
+        text: 'Merhaba! Bugün yemek tarifi bakciagina spora basla bence aminakodum sismani!',
         isUser: false,
         timestamp: new Date(),
-        options: ["Akşam yemeği için hızlı bir tarif", "Vejetaryen yemek önerileri"]
+        options: ["ney?", "Gotumu mu siktireyim?"]
       },
     ]);
   }, []);
@@ -260,10 +260,10 @@ const RecipeAssistantApp = () => {
             <View className="w-6 h-6 bg-blue-500 rounded-sm"></View>
           </View>
           <View>
-            <Text className="font-bold text-sm text-gray-900">Yemek Tarifi Asistanı</Text>
+            <Text className="font-bold text-sm text-gray-900">GainAI</Text>
             <View className="flex-row items-center mt-0.5">
               <View className="w-2 h-2 bg-green-400 rounded-full mr-1"></View>
-              <Text className="text-xs text-gray-500">Her zaman aktif</Text>
+              <Text className="text-xs text-gray-500">sEMTTe</Text>
             </View>
           </View>
         </View>
