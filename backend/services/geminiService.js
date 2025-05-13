@@ -16,13 +16,13 @@ const messageBuilders = {
 const sendToGemini = async (prompt) => {
   try {
     // Gemini API endpoint - adjust as necessary for the actual API
-    const endpoint = process.env.GEMINI_API_ENDPOINT || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
     const apiKey = process.env.GEMINI_API_KEY;
+    const endpoint = process.env.GEMINI_API_ENDPOINT || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
 
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is not defined in environment variables');
     }
-
     const response = await axios.post(
       `${endpoint}?key=${apiKey}`,
       {
