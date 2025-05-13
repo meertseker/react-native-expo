@@ -44,7 +44,8 @@ export default function Tabs({ navigation }: any) {
             width: "100%",
             height: "100%",
             padding: 0,
-            margin: 0
+            margin: 0,
+            marginTop: 15,
           },
           tabBarStyle: {
             backgroundColor: "#0f0D23",
