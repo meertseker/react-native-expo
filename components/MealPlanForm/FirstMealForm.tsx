@@ -17,7 +17,7 @@ const StepOneScreen: React.FC = () => {
   const handleNext = () => {
     // Burada formu doğrulayabilir ve verileri saklayabilirsiniz
     console.log('Step One Data:', { name, age, gender });
-    navigation.navigate('SecondMealForm');
+    navigation.navigate('FinalMealForm');
   };
 
   return (
