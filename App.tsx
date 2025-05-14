@@ -6,6 +6,8 @@ import Chat from './screens/Chat';
 import "./global.css"
 import FirstMealForm from "./components/MealPlanForm/FirstMealForm"
 import FinalMealForm from "./components/MealPlanForm/FinalMealForm"
+import UserInfoScreen from 'components/MealPlanForm/UserInfo';
+import AllergySelectionScreen from 'components/MealPlanForm/AllergySelection';
 
 
 
@@ -37,7 +39,10 @@ export default function App() {
             }
           />
         <Stack.Screen name="FirstMealForm" component={FirstMealForm} />
+        <Stack.Screen name="UserInfo" component={UserInfoScreen} />
+        <Stack.Screen name="AllergySelection" component={AllergySelectionScreen} />
         <Stack.Screen name="FinalMealForm" component={FinalMealForm} />
+
         </Stack.Navigator>
       </NavigationContainer>
     </>
