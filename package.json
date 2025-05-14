@@ -20,6 +20,7 @@
     "axios": "^1.9.0",
     "date-fns": "^4.1.0",
     "expo": "^53.0.9",
+    "expo-checkbox": "^4.1.4",
     "expo-speech": "~13.1.7",
     "expo-status-bar": "~2.2.3",
     "lucide-react": "^0.510.0",
