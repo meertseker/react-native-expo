@@ -9,7 +9,7 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-} from 'react-native';
+} from 'react-native'
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
@@ -31,7 +31,7 @@ interface Recipe {
   tags: string[];
 }
 
-// ChatGPT-style typing indicator (keeping from your original code)
+
 const TypingIndicator = () => {
   return (
     <View className="flex-row items-center p-2">

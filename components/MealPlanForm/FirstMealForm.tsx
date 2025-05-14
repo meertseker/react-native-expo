@@ -17,7 +17,7 @@ const StepOneScreen: React.FC = () => {
   const handleNext = () => {
     // Burada formu doğrulayabilir ve verileri saklayabilirsiniz
     console.log('Step One Data:', { name, age, gender });
-    navigation.navigate('FinalMealForm');
+    navigation.navigate('AllergySelection');
   };
 
   return (
@@ -92,7 +92,7 @@ const StepOneScreen: React.FC = () => {
       <View className="absolute bottom-8 flex-row w-full justify-between px-4">
         <TouchableOpacity 
           className="bg-[#F2F2F2] rounded px-4 py-2"
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('MainTabs')}
         >
           <Text className="text-black text-center font-bold text-xs">Önceki</Text>
         </TouchableOpacity>
