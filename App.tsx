@@ -38,10 +38,10 @@ export default function App() {
               }
             }
           />
-        <Stack.Screen name="FirstMealForm" component={FirstMealForm} />
-        <Stack.Screen name="UserInfo" component={UserInfoScreen} />
-        <Stack.Screen name="AllergySelection" component={AllergySelectionScreen} />
-        <Stack.Screen name="FinalMealForm" component={FinalMealForm} />
+        <Stack.Screen name="FirstMealForm" component={FirstMealForm} options={{headerShown:false}}/>
+        <Stack.Screen name="UserInfo" component={UserInfoScreen} options={{headerShown:false}}/>
+        <Stack.Screen name="AllergySelection" component={AllergySelectionScreen} options={{headerShown:false}} />
+        <Stack.Screen name="FinalMealForm" component={FinalMealForm} options={{headerShown:false}}/>
 
         </Stack.Navigator>
       </NavigationContainer>
