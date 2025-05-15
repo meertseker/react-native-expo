@@ -73,7 +73,7 @@ export default function Tabs({ navigation }: any) {
       <Tab.Screen
         name="Home"
         component={Home}
-        options={{
+        options={{headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons 
               name="home" 
@@ -91,10 +91,11 @@ export default function Tabs({ navigation }: any) {
       <Tab.Screen
         name="Progress"
         component={Progress}
-        options={{
+        options={{headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons 
-              name="chart-line" 
+              name="chart-line"
+              
               size={size} 
               color={color} 
               style={{ 
@@ -109,7 +110,7 @@ export default function Tabs({ navigation }: any) {
       <Tab.Screen
         name="MealPlan"
         component={MealPlan}
-        options={{
+        options={{headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons 
               name="food-fork-drink" 
