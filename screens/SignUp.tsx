@@ -22,8 +22,8 @@ export default function CustomSignUp() {
     
     setLoading(true);
     try {
-      await signUp.create({ emailAddress: email, password });
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      await signUp?.create({ emailAddress: email, password });
+      await signUp?.prepareEmailAddressVerification({ strategy: 'email_code' });
       setPendingVerification(true);
       Alert.alert('Success', 'Verification code sent to your email');
     } catch (err: any) {
@@ -39,8 +39,8 @@ export default function CustomSignUp() {
     
     setLoading(true);
     try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
-      if (completeSignUp.status === 'complete') {
+      const completeSignUp = await signUp?.attemptEmailAddressVerification({ code });
+      if (completeSignUp?.status === 'complete') {
         Alert.alert('Verified', 'Your account has been created!');
       }
     } catch (err: any) {
