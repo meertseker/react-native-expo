@@ -7,7 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 type MealPlanDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MealPlanDetails'>;
 
-// Expanded dummy data
+
 const MEAL_PLAN_DETAILS = {
   '1': {
     id: '1',

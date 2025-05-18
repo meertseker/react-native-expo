@@ -15,7 +15,7 @@ const HomeScreen = () => {
           </View>
           <TouchableOpacity className="p-2 bg-white rounded-full shadow-sm">
             <Ionicons name="notifications-outline" size={24} color="#4b5563" />
-          </TouchableOpacity>
+          </TouchableOpacity> 
         </View>
 
         {/* Quick Stats Row */}
@@ -54,7 +54,7 @@ const HomeScreen = () => {
         </View>
 
         {/* Smart Grocery List */}
-        <SectionHeader 
+        <SectionHeader
           title="Grocery List" 
           action="Export" 
           icon="cart"
