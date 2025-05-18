@@ -6,10 +6,14 @@ import Grocery from '../screens/Grocery';
 import MealPlan from '../screens/MealPlan';
 import Progress from '../screens/Progress';
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { useAuth } from '@clerk/clerk-expo'
+import { Redirect, Stack } from 'expo-router'
 
 const Tab = createBottomTabNavigator();
 
 export default function Tabs({ navigation }: any) {
+
+ 
 
   const ChatButton: React.FC<BottomTabBarButtonProps> = (props) => (
     <TouchableOpacity
@@ -37,6 +41,8 @@ export default function Tabs({ navigation }: any) {
       />
     </TouchableOpacity>
   );
+
+  
 
   return (
     <Tab.Navigator
