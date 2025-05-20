@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 import os
 from dotenv import load_dotenv
 import json
-from google import genai
+import re
+from datetime import datetime
+import google.generativeai as genai
 from models import db, User, UserForm, Allergy, UserAllergy, MealPlan, Meal, Ingredient, MealIngredient, GroceryItem
 
 def create_app():
@@ -15,8 +17,9 @@ def create_app():
     db.init_app(app)
     
     with app.app_context():
+        db.drop_all()  # Drop tables to ensure fresh schema
         db.create_all()
-        print("Tables created successfully.")
+        print("Tables dropped and created successfully.")
     
     return app
 
@@ -31,18 +34,18 @@ def generate_and_save_meal_plan(user_id):
     if not user_form:
         raise ValueError("User form not found")
     
+    # Correctly access allergy_name through the allergy relationship
     allergies = [ua.allergy.allergy_name for ua in user.user_allergies]
     
     prompt = f"""
-    Generate a 7-day meal plan and grocery list in JSON format for a user with the following details:
+    Please generate a 7-day meal plan and grocery list based on the following user details:
     - Current weight: {user_form.current_weight} kg
     - Target weight: {user_form.target_weight} kg
     - Height: {user_form.height} cm
     - Activity frequency: {user_form.activity_frequency}
     - Allergies: {', '.join(allergies) if allergies else 'None'}
     
-    Please ensure that ingredient names are consistent across the meal plan and grocery list.
-    The JSON should have the following structure:
+    Return only a valid JSON object with the following structure:
     {{
       "meal_plans": [
         {{
@@ -67,16 +70,26 @@ def generate_and_save_meal_plan(user_id):
         ...
       ]
     }}
+    Do not include any text outside of the JSON object. The response must be a valid JSON object only.
     """
     
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(prompt)
     ai_response = response.text
+    print(f"AI Response: {ai_response}")  # Log the response
     
-    try:
-        meal_data = json.loads(ai_response)
-    except json.JSONDecodeError:
-        raise ValueError("AI response is not valid JSON")
+    # Extract JSON if necessary
+    json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(0)
+        try:
+            meal_data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"JSON Decode Error after extraction: {e}")
+            raise ValueError("Extracted AI response is not valid JSON")
+    else:
+        raise ValueError("No JSON object found in AI response")
     
     if 'meal_plans' not in meal_data or 'grocery_list' not in meal_data:
         raise ValueError("Invalid AI response structure")
@@ -91,7 +104,9 @@ def generate_and_save_meal_plan(user_id):
                 meal_name=meal_info['name'],
                 meal_type=meal_info['meal_type'],
                 day=day_data['day'],
-                meal_plan_id=meal_plan.meal_plan_id
+                meal_plan_id=meal_plan.meal_plan_id,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
             )
             db.session.add(meal)
             db.session.flush()
@@ -99,7 +114,11 @@ def generate_and_save_meal_plan(user_id):
             for ing in meal_info['ingredients']:
                 ingredient = Ingredient.query.filter_by(ingredient_name=ing['name']).first()
                 if not ingredient:
-                    ingredient = Ingredient(ingredient_name=ing['name'])
+                    ingredient = Ingredient(
+                        ingredient_name=ing['name'],
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
                     db.session.add(ingredient)
                     db.session.flush()
                 
@@ -107,7 +126,9 @@ def generate_and_save_meal_plan(user_id):
                     meal_id=meal.meal_id,
                     ingredient_id=ingredient.ingredient_id,
                     quantity=ing['quantity'],
-                    unit=ing['unit']
+                    unit=ing['unit'],
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
                 )
                 db.session.add(meal_ingredient)
     
@@ -116,7 +137,9 @@ def generate_and_save_meal_plan(user_id):
             name=grocery['name'],
             quantity=grocery['quantity'],
             unit=grocery['unit'],
-            meal_plan_id=meal_plan.meal_plan_id
+            meal_plan_id=meal_plan.meal_plan_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         db.session.add(grocery_item)
     
@@ -124,9 +147,10 @@ def generate_and_save_meal_plan(user_id):
 
 @app.route('/chatbot', methods=['GET'])
 def chatbot():
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
     prompt = "What is the capital of France?"
-    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+    response = model.generate_content(prompt)
     return response.text
 
 @app.route('/saveUserMealPlanForm', methods=['POST'])
@@ -152,7 +176,9 @@ def save_user_meal_plan_form():
                     name=user_data['name'],
                     age=user_data.get('age'),
                     gender=user_data.get('gender'),
-                    clerk_user_id=clerk_user_id
+                    clerk_user_id=clerk_user_id,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
                 )
                 db.session.add(user)
                 db.session.flush()
@@ -164,27 +190,39 @@ def save_user_meal_plan_form():
                 user_form.target_weight = form_data['target_weight']
                 user_form.height = form_data['height']
                 user_form.activity_frequency = form_data['activity_frequency']
+                user_form.updated_at = datetime.utcnow()
             else:
                 user_form = UserForm(
                     user_id=user.id,
                     current_weight=form_data['current_weight'],
                     target_weight=form_data['target_weight'],
                     height=form_data['height'],
-                    activity_frequency=form_data['activity_frequency']
+                    activity_frequency=form_data['activity_frequency'],
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
                 )
                 db.session.add(user_form)
 
-            current_allergies = {a.allergy_name for a in user.user_allergies}
+            current_allergies = {ua.allergy.allergy_name for ua in user.user_allergies}
             submitted_allergies = set(data['allergies'])
 
             for allergy_name in submitted_allergies - current_allergies:
                 allergy = Allergy.query.filter_by(allergy_name=allergy_name).first()
                 if not allergy:
-                    allergy = Allergy(allergy_name=allergy_name)
+                    allergy = Allergy(
+                        allergy_name=allergy_name,
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
                     db.session.add(allergy)
                     db.session.flush()
                 
-                user_allergy = UserAllergy(user_id=user.id, allergy_id=allergy.allergy_id)
+                user_allergy = UserAllergy(
+                    user_id=user.id,
+                    allergy_id=allergy.allergy_id,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
                 db.session.add(user_allergy)
 
             for allergy_name in current_allergies - submitted_allergies:
@@ -215,11 +253,12 @@ def save_user_meal_plan_form():
 
     except Exception as e:
         db.session.rollback()
+        print(f"Error saving user data: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/createMealPlan', methods=['POST'])
 def create_meal_plan():
-    return "Meal plan created successfully!"
+    return jsonify({"message": "Meal plan created successfully!"}), 200
 
 @app.route('/ali')
 def ali():
