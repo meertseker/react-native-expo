@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 import google.generativeai as genai
 from models import db, User, UserForm, Allergy, UserAllergy, MealPlan, Meal, Ingredient, MealIngredient, GroceryItem
+from flask_cors import CORS
 
 def create_app():
     app = Flask(__name__)
@@ -13,7 +14,7 @@ def create_app():
     
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
+    CORS(app, resources={r"/*": {"origins": ["https://fgqhs80-anonymous-8081.exp.direct", "http://localhost:8081", "*"]}})
     db.init_app(app)
     
     with app.app_context():
@@ -145,13 +146,78 @@ def generate_and_save_meal_plan(user_id):
     
     db.session.commit()
 
-@app.route('/chatbot', methods=['GET'])
+
+@app.route('/chatbot', methods=['POST'])
 def chatbot():
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    prompt = "What is the capital of France?"
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        data = request.get_json()
+        user_input = data.get('userInput')
+        clerk_user_id = data.get('clerk_user_id')  # Optional, to fetch user context
+        
+        if not user_input:
+            return jsonify({"error": "Missing userInput field"}), 400
+
+        # Configure Gemini AI
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+
+        # Fetch user context if clerk_user_id is provided
+        user_context = ""
+        if clerk_user_id:
+            user = User.query.filter_by(clerk_user_id=clerk_user_id).first()
+            if user and user.user_form:
+                user_form = user.user_form
+                allergies = [ua.allergy.allergy_name for ua in user.user_allergies]
+                user_context = f"""
+                User details:
+                - Current weight: {user_form.current_weight} kg
+                - Target weight: {user_form.target_weight} kg
+                - Height: {user_form.height} cm
+                - Activity frequency: {user_form.activity_frequency}
+                - Allergies: {', '.join(allergies) if allergies else 'None'}
+                """
+
+        # Construct prompt
+        prompt = f"""
+        You are GainAI, a meal planning assistant. Respond to the user's message: "{user_input}"
+        {user_context}
+        
+        If the user asks for a recipe or meal suggestion, return a JSON object with the following structure:
+        {{
+          "name": "Recipe Name",
+          "prepTime": "30 minutes",
+          "difficulty": "Easy",
+          "tags": ["Vegan", "Quick"]
+        }}
+        
+        For general conversation or if no recipe is requested, return a plain text response in Turkish.
+        If appropriate, include a JSON array of up to 3 response options for the user to select, like:
+        {{
+          "text": "Your response text here",
+          "options": ["Option 1", "Option 2", "Option 3"]
+        }}
+        
+        Return only the JSON object or plain text response. Do not include markdown or extra text.
+        """
+        
+        response = model.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        ai_response = response.text
+        print(f"AI Response: {ai_response}")
+
+        # Try to parse as JSON
+        try:
+            response_data = json.loads(ai_response)
+            return jsonify(response_data), 200
+        except json.JSONDecodeError:
+            # If not JSON, return as plain text
+            return jsonify({"text": ai_response}), 200
+
+    except Exception as e:
+        print(f"Error in chatbot: {e}")
+        return jsonify({"text": "Bağlantı hatası. Lütfen daha sonra tekrar deneyin."}), 500
 
 @app.route('/saveUserMealPlanForm', methods=['POST'])
 def save_user_meal_plan_form():
