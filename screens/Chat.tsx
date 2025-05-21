@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 
-const API_URL = 'http:/localhost:5000';
+const API_URL = 'https://mipvvnn83i.us-east-1.awsapprunner.com';
 
 interface Message {
   id: string;
