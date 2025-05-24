@@ -8,7 +8,7 @@ import Animated, { FadeInDown, FadeInRight, useSharedValue, useAnimatedStyle, wi
 import * as Haptics from 'expo-haptics';
 
 interface QuickStartOnboardingProps {
-  onComplete: (data: OnboardingData) => void;
+  onComplete?: (data: OnboardingData) => void;
 }
 
 interface OnboardingData {
@@ -81,7 +81,12 @@ export default function QuickStartOnboarding({ onComplete }: QuickStartOnboardin
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      onComplete(formData as OnboardingData);
+      if (onComplete) {
+        onComplete(formData as OnboardingData);
+      } else {
+        // Default behavior - navigate to main app
+        navigation.navigate('MainTabs');
+      }
     }, 2000);
   };
 

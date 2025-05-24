@@ -22,6 +22,7 @@ import MealFrequency from './components/MealPlanForm/MealFrequency';
 import CookingSkills from './components/MealPlanForm/CookingSkills';
 import MealTiming from './components/MealPlanForm/MealTiming';
 import ReviewPlan from './components/MealPlanForm/ReviewPlan';
+import QuickStartOnboarding from './components/QuickStartOnboarding';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   CookingSkills: undefined;
   MealTiming: undefined;
   ReviewPlan: undefined;
+  QuickStartOnboarding: undefined;
 };
 
 const Stack = createStackNavigator();
@@ -100,6 +102,7 @@ function MainApp() {
             <Stack.Screen name="MealPlanDetails" component={MealPlanDetails} options={{ headerShown: false }} />
             <Stack.Screen name="MealScanner" component={MealScanner} options={{ headerShown: false }} />
             <Stack.Screen name="ManualMealLog" component={ManualMealLog} options={{ headerShown: false }} />
+            <Stack.Screen name="QuickStartOnboarding" component={QuickStartOnboarding} options={{ headerShown: false }} />
           </Stack.Navigator>
         </NavigationContainer>
       </MealPlanProvider>
