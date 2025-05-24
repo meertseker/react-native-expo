@@ -1,9 +1,53 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useUser } from '@clerk/clerk-expo';
+import { useNavigation } from '@react-navigation/native';
+import apiService, { MealPlan, DailyNutrition } from '../services/api';
 
 export default function Progress() {
+  const { user } = useUser();
+  const navigation = useNavigation();
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [dailyNutrition, setDailyNutrition] = useState<DailyNutrition | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, [user]);
+
+  const loadData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      const [mealPlanData, nutritionData] = await Promise.all([
+        apiService.getMealPlan(user.id),
+        apiService.getDailyNutrition(user.id)
+      ]);
+      setMealPlan(mealPlanData);
+      setDailyNutrition(nutritionData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleScanMeal = () => {
+    navigation.navigate('MealScanner' as never);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text className="mt-4 text-gray-600">Loading your progress...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar style="dark" />
@@ -11,88 +55,107 @@ export default function Progress() {
         {/* Header Section */}
         <View className="flex-row justify-between items-center mb-6">
           <View>
-            <Text className="text-2xl font-bold text-gray-900">Hi, Mert</Text>
-            <Text className="text-sm text-gray-500">MMA Training Plan</Text>
+            <Text className="text-2xl font-bold text-gray-900">
+              Hi, {user?.firstName || 'User'}
+            </Text>
+            <Text className="text-sm text-gray-500">
+              {mealPlan ? 'AI Nutrition Plan' : 'No Active Plan'}
+            </Text>
           </View>
-          <TouchableOpacity className="p-2 bg-gray-100 rounded-full">
+          <TouchableOpacity 
+            className="p-2 bg-gray-100 rounded-full"
+            onPress={() => navigation.navigate('Settings' as never)}
+          >
             <Feather name="settings" size={20} color="#4b5563" />
           </TouchableOpacity>
         </View>
 
-        {/* Progress Overview */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-semibold text-gray-900">Weekly Progress</Text>
-            <TouchableOpacity className="flex-row items-center">
-              <Text className="text-sm text-blue-600 mr-1">Details</Text>
-              <Feather name="chevron-right" size={16} color="#2563eb" />
-            </TouchableOpacity>
-          </View>
-          
-          <View className="flex-row justify-between mb-4">
-            <ProgressCircle percentage={65} label="Protein" color="#3b82f6" />
-            <ProgressCircle percentage={85} label="Carbs" color="#8b5cf6" />
-            <ProgressCircle percentage={45} label="Fat" color="#f59e0b" />
-          </View>
+        {/* Daily Nutrition Summary */}
+        {dailyNutrition && (
+          <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-lg font-semibold text-gray-900">Today's Progress</Text>
+              <TouchableOpacity onPress={loadData}>
+                <Ionicons name="refresh" size={20} color="#2563eb" />
+              </TouchableOpacity>
+            </View>
 
-          <View className="bg-blue-50 p-3 rounded-lg">
-            <View className="flex-row items-center">
-              <Ionicons name="barbell" size={16} color="#2563eb" />
-              <Text className="text-sm text-blue-800 ml-2">
-                On track to lose 0.6kg fat this week
-              </Text>
+            {/* Calories Progress */}
+            <View className="mb-4">
+              <View className="flex-row justify-between mb-2">
+                <Text className="text-gray-600">Calories</Text>
+                <Text className="text-gray-900 font-semibold">
+                  {dailyNutrition.nutrition.total_calories} / {dailyNutrition.nutrition.target_calories}
+                </Text>
+              </View>
+              <View className="h-2 bg-gray-100 rounded-full">
+                <View 
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: `${dailyNutrition.progress.calories_percent}%` }}
+                />
+              </View>
+            </View>
+
+            {/* Macros Grid */}
+            <View className="flex-row justify-between">
+              <MacroProgress 
+                label="Protein"
+                current={dailyNutrition.nutrition.total_protein}
+                target={dailyNutrition.nutrition.target_protein}
+                percent={dailyNutrition.progress.protein_percent}
+                color="bg-purple-500"
+              />
+              <MacroProgress 
+                label="Carbs"
+                current={dailyNutrition.nutrition.total_carbs}
+                target={dailyNutrition.nutrition.target_carbs}
+                percent={dailyNutrition.progress.carbs_percent}
+                color="bg-green-500"
+              />
+              <MacroProgress 
+                label="Fat"
+                current={dailyNutrition.nutrition.total_fat}
+                target={dailyNutrition.nutrition.target_fat}
+                percent={dailyNutrition.progress.fat_percent}
+                color="bg-yellow-500"
+              />
             </View>
           </View>
-        </View>
+        )}
 
-        {/* Meal Plan Preview */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-semibold text-gray-900">Today's Meals (5 meals)</Text>
-            <TouchableOpacity className="flex-row items-center">
-              <Text className="text-sm text-blue-600 mr-1">Adjust</Text>
-              <Feather name="edit-3" size={16} color="#2563eb" />
-            </TouchableOpacity>
+        {/* Consumed Meals */}
+        {dailyNutrition && dailyNutrition.consumed_meals.length > 0 && (
+          <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
+            <Text className="text-lg font-semibold text-gray-900 mb-4">Consumed Meals</Text>
+            {dailyNutrition.consumed_meals.map((meal, index) => (
+              <ConsumedMealCard key={meal.consumed_meal_id} meal={meal} />
+            ))}
           </View>
+        )}
 
-          <MealPlanCard 
-            time="7:30 AM" 
-            name="High-Protein Breakfast" 
-            macros="42P • 38C • 12F" 
-            calories={320}
-          />
-          <MealPlanCard 
-            time="10:30 AM" 
-            name="Pre-Workout Snack" 
-            macros="25P • 42C • 8F" 
-            calories={280}
-          />
-          
-          <TouchableOpacity className="flex-row justify-center items-center mt-4">
-            <Text className="text-blue-600 text-sm">View Full Meal Plan</Text>
-            <Feather name="chevron-down" size={16} color="#2563eb" className="ml-2" />
-          </TouchableOpacity>
-        </View>
+        {/* Planned Meals */}
+        {mealPlan && (
+          <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-lg font-semibold text-gray-900">Planned Meals</Text>
+              <TouchableOpacity 
+                className="flex-row items-center"
+                onPress={() => navigation.navigate('MealPlan' as never)}
+              >
+                <Text className="text-sm text-blue-600 mr-1">View All</Text>
+                <Feather name="chevron-right" size={16} color="#2563eb" />
+              </TouchableOpacity>
+            </View>
 
-        {/* Smart Grocery List */}
-        <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-semibold text-gray-900">Grocery List</Text>
-            <TouchableOpacity className="flex-row items-center">
-              <Text className="text-sm text-blue-600 mr-1">Export</Text>
-              <MaterialCommunityIcons name="export" size={16} color="#2563eb" />
-            </TouchableOpacity>
+            {apiService.getTodaysMeals(mealPlan).map((meal, index) => (
+              <PlannedMealCard 
+                key={meal.meal_id}
+                meal={meal}
+                time={getMealTime(index)}
+              />
+            ))}
           </View>
-
-          <GroceryListItem name="Chicken Breast" quantity="1.4kg" />
-          <GroceryListItem name="Asparagus" quantity="420g" swapable />
-          <GroceryListItem name="Oats" quantity="800g" />
-
-          <TouchableOpacity className="flex-row items-center mt-4 bg-green-100 p-3 rounded-lg">
-            <FontAwesome name="camera" size={16} color="#16a34a" />
-            <Text className="text-green-800 text-sm ml-2">Scan to Add Items</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {/* AI Assistant */}
         <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
@@ -101,64 +164,94 @@ export default function Progress() {
             <MaterialCommunityIcons name="robot-happy" size={24} color="#4b5563" />
           </View>
 
-          <TouchableOpacity className="flex-row items-center p-3 bg-gray-50 rounded-lg mb-3">
-            <Text className="text-gray-600 flex-1">What's a good post-MMA workout snack?</Text>
+          <TouchableOpacity 
+            className="flex-row items-center p-3 bg-gray-50 rounded-lg mb-3"
+            onPress={() => navigation.navigate('Chat' as never)}
+          >
+            <Text className="text-gray-600 flex-1">What's a good post-workout snack?</Text>
             <Feather name="chevron-right" size={16} color="#4b5563" />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-            <Text className="text-gray-600 flex-1">Suggest alternatives for salmon</Text>
+          <TouchableOpacity 
+            className="flex-row items-center p-3 bg-gray-50 rounded-lg"
+            onPress={() => navigation.navigate('Chat' as never)}
+          >
+            <Text className="text-gray-600 flex-1">Suggest meal alternatives</Text>
             <Feather name="chevron-right" size={16} color="#4b5563" />
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity className="absolute bottom-6 right-6 bg-blue-600 p-4 rounded-full shadow-lg">
-        <MaterialCommunityIcons name="food-apple" size={24} color="white" />
+      {/* Floating Action Button - Scan Meal */}
+      <TouchableOpacity 
+        className="absolute bottom-6 right-6 bg-[#8A47EB] p-4 rounded-full shadow-lg"
+        onPress={handleScanMeal}
+      >
+        <MaterialCommunityIcons name="camera" size={24} color="white" />
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
-function ProgressCircle({ percentage, label, color }: any) {
+function getMealTime(index: number) {
+  const times = ['7:30 AM', '10:30 AM', '1:00 PM', '4:00 PM', '7:00 PM'];
+  return times[index] || '12:00 PM';
+}
+
+function MacroProgress({ label, current, target, percent, color }: any) {
   return (
-    <View className="items-center">
-      <View className="w-16 h-16 rounded-full justify-center items-center border-4 border-gray-100">
-        <Text style={{ color }} className="text-lg font-bold">{percentage}%</Text>
+    <View className="flex-1 mx-1">
+      <Text className="text-gray-600 text-sm mb-1">{label}</Text>
+      <Text className="text-gray-900 font-semibold mb-1">
+        {Math.round(current)}g / {Math.round(target)}g
+      </Text>
+      <View className="h-1 bg-gray-100 rounded-full">
+        <View 
+          className={`h-full ${color} rounded-full`}
+          style={{ width: `${percent}%` }}
+        />
       </View>
-      <Text className="text-sm text-gray-600 mt-2">{label}</Text>
     </View>
   );
 }
 
-function MealPlanCard({ time, name, macros, calories }: any) {
+function ConsumedMealCard({ meal }: { meal: any }) {
   return (
-    <TouchableOpacity className="flex-row items-center py-3 border-b border-gray-100">
-      <View className="w-12 h-12 bg-gray-100 rounded-lg mr-4" />
-      <View className="flex-1">
-        <Text className="text-gray-500 text-sm">{time}</Text>
-        <Text className="font-medium text-gray-900">{name}</Text>
-        <Text className="text-sm text-gray-500">{macros} • {calories} cal</Text>
+    <View className="flex-row items-center py-3 border-b border-gray-100">
+      <View className="w-12 h-12 bg-gray-100 rounded-lg mr-4 items-center justify-center">
+        <MaterialCommunityIcons 
+          name={meal.source === 'scan' ? 'camera' : 'food'} 
+          size={20} 
+          color="#4b5563" 
+        />
       </View>
-      <Feather name="chevron-right" size={16} color="#4b5563" />
-    </TouchableOpacity>
+      <View className="flex-1">
+        <Text className="font-medium text-gray-900">{meal.meal_name}</Text>
+        <Text className="text-sm text-gray-500">
+          {meal.calories} cal • {meal.protein}g protein • {meal.carbs}g carbs • {meal.fat}g fat
+        </Text>
+        <Text className="text-xs text-gray-400">
+          {new Date(meal.consumed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+    </View>
   );
 }
 
-function GroceryListItem({ name, quantity, swapable }: any) {
+function PlannedMealCard({ meal, time }: { meal: any; time: string }) {
   return (
     <View className="flex-row items-center py-3 border-b border-gray-100">
-      <View className="w-6 h-6 bg-gray-100 rounded-sm mr-4" />
-      <View className="flex-1">
-        <Text className="font-medium text-gray-900">{name}</Text>
-        <Text className="text-sm text-gray-500">{quantity}</Text>
+      <View className="w-12 h-12 bg-gray-100 rounded-lg mr-4 items-center justify-center">
+        <MaterialCommunityIcons name="food-fork-drink" size={20} color="#4b5563" />
       </View>
-      {swapable && (
-        <TouchableOpacity className="p-2 bg-orange-100 rounded-lg">
-          <Text className="text-orange-800 text-sm">Swap</Text>
-        </TouchableOpacity>
-      )}
+      <View className="flex-1">
+        <Text className="text-gray-500 text-sm">{time}</Text>
+        <Text className="font-medium text-gray-900">{meal.meal_name}</Text>
+        <Text className="text-sm text-gray-500">
+          {meal.ingredients.length} ingredients
+        </Text>
+      </View>
+      <Feather name="chevron-right" size={16} color="#4b5563" />
     </View>
   );
 }

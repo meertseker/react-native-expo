@@ -1,72 +1,102 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useUser } from '@clerk/clerk-expo';
+import apiService, { MealPlan } from '../services/api';
 
-type MealPlansScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MealPlans'>;
-
-// Dummy data for meal plans
-const DUMMY_MEAL_PLANS = [
-  {
-    id: '1',
-    name: 'Weight Loss Plan',
-    duration: '4 weeks',
-    calories: 1800,
-    lastUpdated: '3 days ago',
-    progress: 65,
-    image: 'salad'
-  },
-  {
-    id: '2',
-    name: 'Muscle Building',
-    duration: '8 weeks',
-    calories: 2500,
-    lastUpdated: '1 week ago',
-    progress: 30,
-    image: 'protein'
-  },
-  {
-    id: '3',
-    name: 'Maintenance Diet',
-    duration: '12 weeks',
-    calories: 2100,
-    lastUpdated: '2 days ago',
-    progress: 15,
-    image: 'balanced'
-  },
-];
+type MealPlansScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'UserMeals'>;
 
 const MealPlansScreen: React.FC = () => {
   const navigation = useNavigation<MealPlansScreenNavigationProp>();
+  const { user } = useUser();
   const [activeFilter, setActiveFilter] = useState('all');
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleMealPlanPress = (planId: string) => {
-    // Navigate to meal plan details screen
-    navigation.navigate('MealPlanDetails', { planId });
-  };
+  useEffect(() => {
+    loadMealPlans();
+  }, [user]);
 
-  const getFilteredPlans = () => {
-    if (activeFilter === 'all') return DUMMY_MEAL_PLANS;
-    if (activeFilter === 'active') return DUMMY_MEAL_PLANS.filter(plan => plan.progress < 100 && plan.progress > 0);
-    if (activeFilter === 'completed') return DUMMY_MEAL_PLANS.filter(plan => plan.progress === 100);
-    return DUMMY_MEAL_PLANS;
-  };
-
-  const getImageSource = (type: string) => {
-    // In a real app, you would use actual images
-    switch(type) {
-      case 'salad':
-        return require('../assets/placeholder.png');
-      case 'protein':
-        return require('../assets/placeholder.png');
-      case 'balanced':
-        return require('../assets/placeholder.png');
-      default:
-        return require('../assets/placeholder.png');
+  const loadMealPlans = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      const data = await apiService.getMealPlan(user.id);
+      setMealPlan(data);
+    } catch (error) {
+      console.error('Failed to load meal plans:', error);
+      // Don't show error alert for 404 - just means no meal plan exists
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleMealPlanPress = () => {
+    if (mealPlan) {
+      navigation.navigate('MealPlanDetails');
+    }
+  };
+
+  const handleRefresh = () => {
+    loadMealPlans();
+  };
+
+  const handleGroceryPress = () => {
+    // Navigate back to main tabs and switch to Grocery tab
+    navigation.navigate('MainTabs');
+    // Note: Tab switching will need to be handled by the parent navigator
+  };
+
+  const calculateProgress = () => {
+    if (!mealPlan) return 0;
+    
+    // Calculate progress based on days passed since creation
+    const createdDate = new Date(mealPlan.meal_plan.created_at);
+    const today = new Date();
+    const daysPassed = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
+    const totalDays = 7; // 7-day meal plan
+    
+    return Math.min(Math.round((daysPassed / totalDays) * 100), 100);
+  };
+
+  const getTimeAgo = () => {
+    if (!mealPlan) return '';
+    
+    const createdDate = new Date(mealPlan.meal_plan.created_at);
+    const today = new Date();
+    const daysDiff = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
+    
+    if (daysDiff === 0) return 'Today';
+    if (daysDiff === 1) return '1 day ago';
+    if (daysDiff < 7) return `${daysDiff} days ago`;
+    const weeksDiff = Math.floor(daysDiff / 7);
+    if (weeksDiff === 1) return '1 week ago';
+    return `${weeksDiff} weeks ago`;
+  };
+
+  const getTotalCalories = () => {
+    if (!mealPlan) return 0;
+    
+    let totalCalories = 0;
+    mealPlan.meal_plan.days.forEach(day => {
+      totalCalories += apiService.calculateDailyCalories(mealPlan, day.day);
+    });
+    
+    return Math.round(totalCalories / mealPlan.meal_plan.days.length); // Average daily calories
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white justify-center items-center">
+        <ActivityIndicator size="large" color="#8A47EB" />
+        <Text className="mt-4 text-gray-600">Loading your meal plans...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -77,32 +107,31 @@ const MealPlansScreen: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text className="text-2xl font-bold text-gray-900">My Meal Plans</Text>
-          <TouchableOpacity className="p-2">
-            <Ionicons name="options-outline" size={24} color="#333" />
+          <TouchableOpacity className="p-2" onPress={handleRefresh}>
+            <Ionicons name="refresh" size={24} color="#8A47EB" />
           </TouchableOpacity>
         </View>
 
-        {/* Filters */}
-        <View className="flex-row bg-gray-100 rounded-full p-1 mb-6">
-          <TouchableOpacity 
-            className={`flex-1 py-2 px-4 rounded-full ${activeFilter === 'all' ? 'bg-white shadow' : ''}`}
-            onPress={() => setActiveFilter('all')}
-          >
-            <Text className={`text-center ${activeFilter === 'all' ? 'text-purple-600 font-medium' : 'text-gray-600'}`}>All</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className={`flex-1 py-2 px-4 rounded-full ${activeFilter === 'active' ? 'bg-white shadow' : ''}`}
-            onPress={() => setActiveFilter('active')}
-          >
-            <Text className={`text-center ${activeFilter === 'active' ? 'text-purple-600 font-medium' : 'text-gray-600'}`}>Active</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className={`flex-1 py-2 px-4 rounded-full ${activeFilter === 'completed' ? 'bg-white shadow' : ''}`}
-            onPress={() => setActiveFilter('completed')}
-          >
-            <Text className={`text-center ${activeFilter === 'completed' ? 'text-purple-600 font-medium' : 'text-gray-600'}`}>Completed</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Stats Summary */}
+        {mealPlan && (
+          <View className="bg-purple-50 rounded-xl p-4 mb-6">
+            <Text className="text-purple-800 font-semibold text-lg mb-2">Current Plan Statistics</Text>
+            <View className="flex-row justify-between">
+              <View className="items-center">
+                <Text className="text-2xl font-bold text-purple-600">{mealPlan.meal_plan.days.length}</Text>
+                <Text className="text-purple-500 text-xs">Days</Text>
+              </View>
+              <View className="items-center">
+                <Text className="text-2xl font-bold text-purple-600">{getTotalCalories()}</Text>
+                <Text className="text-purple-500 text-xs">Avg. Calories</Text>
+              </View>
+              <View className="items-center">
+                <Text className="text-2xl font-bold text-purple-600">{mealPlan.grocery_list.length}</Text>
+                <Text className="text-purple-500 text-xs">Ingredients</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Meal Plans List */}
         <ScrollView 
@@ -110,33 +139,49 @@ const MealPlansScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
         >
-          {getFilteredPlans().length > 0 ? (
-            getFilteredPlans().map(plan => (
-              <MealPlanCard 
-                key={plan.id} 
-                plan={plan} 
-                onPress={() => handleMealPlanPress(plan.id)}
-                getImageSource={getImageSource}
-              />
-            ))
+          {mealPlan ? (
+            <MealPlanCard 
+              mealPlan={mealPlan}
+              progress={calculateProgress()}
+              lastUpdated={getTimeAgo()}
+              onPress={handleMealPlanPress}
+            />
           ) : (
-            <View className="items-center justify-center py-10">
-              <MaterialCommunityIcons name="food-off" size={60} color="#ccc" />
-              <Text className="text-lg text-gray-500 mt-4">No meal plans found</Text>
-              <Text className="text-gray-400 text-center mt-2">Try changing your filter or create a new meal plan</Text>
+            <View className="items-center justify-center py-20">
+              <MaterialCommunityIcons name="food-off" size={80} color="#ccc" />
+              <Text className="text-xl text-gray-500 mt-4 font-semibold">No Meal Plans Yet</Text>
+              <Text className="text-gray-400 text-center mt-2 px-8">
+                Create your first personalized meal plan to start your nutrition journey
+              </Text>
+              <TouchableOpacity 
+                className="bg-[#8A47EB] px-6 py-3 rounded-lg mt-6"
+                onPress={() => navigation.navigate('FirstMealForm')}
+              >
+                <Text className="text-white font-semibold">Create Your First Plan</Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
         
-        {/* Create New Plan Button */}
-        <View className="pb-6 pt-2">
+        {/* Action Buttons */}
+        <View className="pb-6 pt-2 flex-row space-x-3">
           <TouchableOpacity 
-            className="bg-purple-600 py-4 rounded-xl flex-row justify-center items-center"
+            className="bg-[#8A47EB] flex-1 py-4 rounded-xl flex-row justify-center items-center"
             onPress={() => navigation.navigate('FirstMealForm')}
           >
-            <Ionicons name="add-circle-outline" size={20} color="white" className="mr-2" />
-            <Text className="text-white font-bold text-lg ml-2">Create New Plan</Text>
+            <Ionicons name="add-circle-outline" size={20} color="white" />
+            <Text className="text-white font-bold text-lg ml-2">New Plan</Text>
           </TouchableOpacity>
+          
+          {mealPlan && (
+            <TouchableOpacity 
+              className="bg-gray-100 flex-1 py-4 rounded-xl flex-row justify-center items-center"
+              onPress={handleGroceryPress}
+            >
+              <Ionicons name="basket-outline" size={20} color="#374151" />
+              <Text className="text-gray-700 font-bold text-lg ml-2">Grocery</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -144,68 +189,67 @@ const MealPlansScreen: React.FC = () => {
 };
 
 interface MealPlanCardProps {
-  plan: {
-    id: string;
-    name: string;
-    duration: string;
-    calories: number;
-    lastUpdated: string;
-    progress: number;
-    image: string;
-  };
+  mealPlan: MealPlan;
+  progress: number;
+  lastUpdated: string;
   onPress: () => void;
-  getImageSource: (type: string) => any;
 }
 
-const MealPlanCard: React.FC<MealPlanCardProps> = ({ plan, onPress, getImageSource }) => {
+const MealPlanCard: React.FC<MealPlanCardProps> = ({ mealPlan, progress, lastUpdated, onPress }) => {
+  const totalMeals = mealPlan.meal_plan.days.reduce((total, day) => total + day.meals.length, 0);
+  const avgCalories = apiService.calculateDailyCalories(mealPlan, 1); // Get calories for day 1 as sample
+
   return (
     <TouchableOpacity 
-      className="bg-gray-50 rounded-xl mb-4 overflow-hidden"
+      className="bg-white border border-gray-200 rounded-xl mb-4 overflow-hidden shadow-sm"
       onPress={onPress}
     >
-      <View className="flex-row">
-        {/* Left side - Image */}
-        <View className="w-24 h-24 bg-gray-200 justify-center items-center">
-          <Image 
-            source={getImageSource(plan.image)}
-            className="w-full h-full"
-            resizeMode="cover"
-          />
+      <View className="p-4">
+        <View className="flex-row justify-between items-start mb-3">
+          <View className="flex-1">
+            <Text className="text-xl font-bold text-gray-900 mb-1">AI Generated Meal Plan</Text>
+            <Text className="text-gray-500 text-sm">7-day personalized nutrition plan</Text>
+          </View>
+          <View className="bg-green-100 px-3 py-1 rounded-full">
+            <Text className="text-green-700 font-medium text-xs">Active</Text>
+          </View>
         </View>
         
-        {/* Right side - Content */}
-        <View className="flex-1 p-3">
-          <View className="flex-row justify-between items-start">
-            <Text className="text-lg font-bold text-gray-900">{plan.name}</Text>
-            <TouchableOpacity className="p-1">
-              <MaterialCommunityIcons name="dots-vertical" size={18} color="#666" />
-            </TouchableOpacity>
+        <View className="flex-row justify-between mb-4">
+          <View className="flex-row items-center">
+            <MaterialCommunityIcons name="calendar-range" size={16} color="#8A47EB" />
+            <Text className="text-sm text-gray-600 ml-1">7 days</Text>
           </View>
-          
-          <View className="flex-row mt-1">
-            <View className="flex-row items-center mr-4">
-              <MaterialCommunityIcons name="calendar-range" size={14} color="#8A47EB" />
-              <Text className="text-xs text-gray-600 ml-1">{plan.duration}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <MaterialCommunityIcons name="fire" size={14} color="#FF6B6B" />
-              <Text className="text-xs text-gray-600 ml-1">{plan.calories} cal</Text>
-            </View>
+          <View className="flex-row items-center">
+            <MaterialCommunityIcons name="fire" size={16} color="#FF6B6B" />
+            <Text className="text-sm text-gray-600 ml-1">{avgCalories} cal/day</Text>
           </View>
-          
-          {/* Progress bar */}
-          <View className="mt-2">
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View 
-                className="h-full bg-green-500 rounded-full" 
-                style={{ width: `${plan.progress}%` }} 
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <Text className="text-xs text-gray-500">Progress: {plan.progress}%</Text>
-              <Text className="text-xs text-gray-500">Updated {plan.lastUpdated}</Text>
-            </View>
+          <View className="flex-row items-center">
+            <MaterialCommunityIcons name="food" size={16} color="#10b981" />
+            <Text className="text-sm text-gray-600 ml-1">{totalMeals} meals</Text>
           </View>
+        </View>
+        
+        {/* Progress bar */}
+        <View className="mb-3">
+          <View className="flex-row justify-between mb-1">
+            <Text className="text-sm font-medium text-gray-700">Plan Progress</Text>
+            <Text className="text-sm text-gray-500">{progress}%</Text>
+          </View>
+          <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <View 
+              className="h-full bg-[#8A47EB] rounded-full" 
+              style={{ width: `${progress}%` }} 
+            />
+          </View>
+        </View>
+
+        <View className="flex-row justify-between items-center">
+          <Text className="text-xs text-gray-500">Created {lastUpdated}</Text>
+          <TouchableOpacity className="flex-row items-center">
+            <Text className="text-[#8A47EB] text-sm font-medium mr-1">View Details</Text>
+            <Ionicons name="chevron-forward" size={16} color="#8A47EB" />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>

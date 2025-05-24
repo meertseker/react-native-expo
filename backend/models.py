@@ -21,6 +21,8 @@ class User(db.Model):
     user_form = db.relationship('UserForm', backref='user', uselist=False, cascade='all, delete-orphan')
     user_allergies = db.relationship('UserAllergy', backref='user', lazy=True, cascade='all, delete-orphan')
     meal_plans = db.relationship('MealPlan', backref='user', lazy=True, cascade='all, delete-orphan')
+    consumed_meals = db.relationship('ConsumedMeal', backref='user', lazy=True, cascade='all, delete-orphan')
+    daily_nutrition = db.relationship('DailyNutrition', backref='user', lazy=True, cascade='all, delete-orphan')
 
 class UserForm(db.Model):
     __tablename__ = 'user_forms'
@@ -117,3 +119,59 @@ class GroceryItem(db.Model):
     meal_plan_id = db.Column(db.String(36), db.ForeignKey('meal_plans.meal_plan_id', ondelete='CASCADE'), nullable=False)
     created_at = db.Column(db.DateTime(), default=datetime.utcnow)
     updated_at = db.Column(db.DateTime(), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class ConsumedMeal(db.Model):
+    __tablename__ = 'consumed_meals'
+    
+    consumed_meal_id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    meal_name = db.Column(db.String(200), nullable=False)
+    meal_type = db.Column(db.String(50), nullable=True)  # breakfast, lunch, dinner, snack
+    calories = db.Column(db.Float(), nullable=False)
+    protein = db.Column(db.Float(), nullable=True, default=0)
+    carbs = db.Column(db.Float(), nullable=True, default=0)
+    fat = db.Column(db.Float(), nullable=True, default=0)
+    fiber = db.Column(db.Float(), nullable=True, default=0)
+    image_url = db.Column(db.String(500), nullable=True)  # URL of the scanned image
+    recognition_confidence = db.Column(db.Float(), nullable=True)  # Google Vision API confidence
+    source = db.Column(db.String(50), default='scan')  # 'scan', 'manual', 'planned'
+    consumed_at = db.Column(db.DateTime(), default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(), default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    food_items = db.relationship('FoodRecognition', backref='consumed_meal', lazy=True, cascade='all, delete-orphan')
+
+class FoodRecognition(db.Model):
+    __tablename__ = 'food_recognitions'
+    
+    recognition_id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    consumed_meal_id = db.Column(db.String(36), db.ForeignKey('consumed_meals.consumed_meal_id', ondelete='CASCADE'), nullable=False)
+    food_name = db.Column(db.String(200), nullable=False)
+    confidence_score = db.Column(db.Float(), nullable=False)
+    estimated_quantity = db.Column(db.Float(), nullable=True)
+    estimated_unit = db.Column(db.String(20), nullable=True)
+    calories_per_serving = db.Column(db.Float(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class DailyNutrition(db.Model):
+    __tablename__ = 'daily_nutrition'
+    
+    daily_nutrition_id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    date = db.Column(db.Date(), nullable=False)
+    total_calories = db.Column(db.Float(), default=0)
+    total_protein = db.Column(db.Float(), default=0)
+    total_carbs = db.Column(db.Float(), default=0)
+    total_fat = db.Column(db.Float(), default=0)
+    total_fiber = db.Column(db.Float(), default=0)
+    target_calories = db.Column(db.Float(), nullable=True)
+    target_protein = db.Column(db.Float(), nullable=True)
+    target_carbs = db.Column(db.Float(), nullable=True)
+    target_fat = db.Column(db.Float(), nullable=True)
+    meals_planned = db.Column(db.Integer, default=0)
+    meals_consumed = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime(), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(), default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'date', name='unique_user_daily_nutrition'),)

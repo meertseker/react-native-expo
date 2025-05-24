@@ -13,6 +13,8 @@ import MealPlansScreen from 'components/UserMealPlans';
 import MealPlanDetails from 'components/MealPlanDetails';
 import SignUpScreen from 'screens/SignUp';
 import LoginScreen from './LoginScreen';
+import MealScanner from './screens/MealScanner';
+import ManualMealLog from './screens/ManualMealLog';
 import { MealPlanFormProvider } from './contexts/MealPlanFormContext';
 
 export type RootStackParamList = {
@@ -29,6 +31,9 @@ export type RootStackParamList = {
   MealPlanDetails: undefined;
   Login: undefined;
   SignUp: undefined;
+  MealScanner: undefined;
+  Progress: undefined;
+  ManualMealLog: undefined;
 };
 
 const Stack = createStackNavigator();
@@ -76,6 +81,8 @@ function MainApp() {
           <Stack.Screen name="FinalMealForm" component={FinalMealForm} options={{ headerShown: false }} />
           <Stack.Screen name="UserMeals" component={MealPlansScreen} options={{ headerShown: false }} />
           <Stack.Screen name="MealPlanDetails" component={MealPlanDetails} options={{ headerShown: false }} />
+          <Stack.Screen name="MealScanner" component={MealScanner} options={{ headerShown: false }} />
+          <Stack.Screen name="ManualMealLog" component={ManualMealLog} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
     </MealPlanFormProvider>
@@ -86,7 +93,6 @@ export default function App() {
   return (
     <ClerkProvider 
       publishableKey="pk_test_dGhhbmtmdWwtaW1wYWxhLTkuY2xlcmsuYWNjb3VudHMuZGV2JA"
-
     >
       <MainApp />
     </ClerkProvider>

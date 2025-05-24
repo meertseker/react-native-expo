@@ -59,6 +59,78 @@ export interface ChatMessage {
   clerk_user_id?: string;
 }
 
+export interface ConsumedMeal {
+  consumed_meal_id: string;
+  meal_name: string;
+  meal_type: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  consumed_at: string;
+  source: 'scan' | 'manual' | 'planned';
+  recognition_confidence?: number;
+}
+
+export interface DailyNutrition {
+  date: string;
+  nutrition: {
+    total_calories: number;
+    total_protein: number;
+    total_carbs: number;
+    total_fat: number;
+    total_fiber: number;
+    target_calories: number;
+    target_protein: number;
+    target_carbs: number;
+    target_fat: number;
+    meals_consumed: number;
+  };
+  progress: {
+    calories_percent: number;
+    protein_percent: number;
+    carbs_percent: number;
+    fat_percent: number;
+  };
+  consumed_meals: ConsumedMeal[];
+}
+
+export interface FoodAnalysis {
+  foods: Array<{
+    name: string;
+    confidence: number;
+    estimated_quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+  }>;
+  total_calories: number;
+  meal_description: string;
+}
+
+export interface MealScanResult {
+  success: boolean;
+  consumed_meal_id: string;
+  analysis: FoodAnalysis;
+  nutrition_summary: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+  };
+  daily_progress?: {
+    total_calories: number;
+    target_calories: number;
+    calories_remaining: number;
+    meals_consumed: number;
+  };
+}
+
 export const apiService = {
   // Save user meal plan form and generate meal plan
   async saveUserMealPlanForm(data: UserFormData) {
@@ -104,6 +176,64 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error('Error creating meal plan:', error);
+      throw error;
+    }
+  },
+
+  // Scan meal with image
+  async scanMeal(clerkUserId: string, imageBase64: string, mealType?: string): Promise<MealScanResult> {
+    try {
+      const response = await api.post('/scanMeal', {
+        clerk_user_id: clerkUserId,
+        image_base64: imageBase64,
+        meal_type: mealType || 'unknown',
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error scanning meal:', error);
+      throw error;
+    }
+  },
+
+  // Get daily nutrition data
+  async getDailyNutrition(clerkUserId: string, date?: string): Promise<DailyNutrition> {
+    try {
+      const response = await api.post('/getDailyNutrition', {
+        clerk_user_id: clerkUserId,
+        date: date, // Optional: YYYY-MM-DD format
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching daily nutrition:', error);
+      throw error;
+    }
+  },
+
+  // Log meal manually
+  async logMealManually(data: {
+    clerkUserId: string;
+    mealName: string;
+    calories: number;
+    mealType?: string;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    fiber?: number;
+  }) {
+    try {
+      const response = await api.post('/logMealManually', {
+        clerk_user_id: data.clerkUserId,
+        meal_name: data.mealName,
+        meal_type: data.mealType || 'unknown',
+        calories: data.calories,
+        protein: data.protein || 0,
+        carbs: data.carbs || 0,
+        fat: data.fat || 0,
+        fiber: data.fiber || 0,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error logging meal manually:', error);
       throw error;
     }
   },
@@ -165,6 +295,28 @@ export const apiService = {
       name: meal.meal_name,
       macros: `${estimatedProtein}P • ${estimatedCarbs}C • ${estimatedFat}F`,
     };
+  },
+
+  // Helper to convert image to base64
+  async convertImageToBase64(imageUri: string): Promise<string> {
+    try {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          // Remove the data:image/jpeg;base64, prefix
+          const base64Data = base64String.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error converting image to base64:', error);
+      throw error;
+    }
   },
 };
 

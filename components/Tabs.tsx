@@ -5,16 +5,12 @@ import Home from '../screens/Home';
 import Grocery from '../screens/Grocery';
 import MealPlan from '../screens/MealPlan';
 import Progress from '../screens/Progress';
+import Settings from '../screens/Settings';
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
-import { useAuth } from '@clerk/clerk-expo'
-import { Redirect, Stack } from 'expo-router'
 
 const Tab = createBottomTabNavigator();
 
 export default function Tabs({ navigation }: any) {
-
- 
-
   const ChatButton: React.FC<BottomTabBarButtonProps> = (props) => (
     <TouchableOpacity
       onPress={() => navigation.navigate('Chat')}
@@ -41,8 +37,6 @@ export default function Tabs({ navigation }: any) {
       />
     </TouchableOpacity>
   );
-
-  
 
   return (
     <Tab.Navigator
@@ -79,7 +73,8 @@ export default function Tabs({ navigation }: any) {
       <Tab.Screen
         name="Home"
         component={Home}
-        options={{headerShown: false,
+        options={{
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons 
               name="home" 
@@ -87,26 +82,7 @@ export default function Tabs({ navigation }: any) {
               color={color} 
               style={{ 
                 backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,  // Ensures circular icon
-                padding: 8,
-              }} 
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Progress"
-        component={Progress}
-        options={{headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons 
-              name="chart-line"
-              
-              size={size} 
-              color={color} 
-              style={{ 
-                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,  // Ensures circular icon
+                borderRadius: 50,
                 padding: 8,
               }} 
             />
@@ -116,7 +92,8 @@ export default function Tabs({ navigation }: any) {
       <Tab.Screen
         name="MealPlan"
         component={MealPlan}
-        options={{headerShown: false,
+        options={{
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons 
               name="food-fork-drink" 
@@ -124,32 +101,11 @@ export default function Tabs({ navigation }: any) {
               color={color} 
               style={{ 
                 backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,  // Ensures circular icon
+                borderRadius: 50,
                 padding: 8,
               }} 
             />
           ),
-        }}
-      />
-      <Tab.Screen
-        name="Grocery"
-        component={Grocery}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons 
-              name="basket" 
-              size={size} 
-              color={color} 
-              style={{ 
-                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,  // Ensures circular icon
-                padding: 8,
-                display: "flex",
-                alignContent: "center",
-              }} 
-            />
-          ),
-          headerShown: false,
         }}
       />
       <Tab.Screen
@@ -157,6 +113,44 @@ export default function Tabs({ navigation }: any) {
         component={Home}
         options={{
           tabBarButton: (props) => <ChatButton {...props} />
+        }}
+      />
+      <Tab.Screen
+        name="Grocery"
+        component={Grocery}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons 
+              name="basket" 
+              size={size} 
+              color={color} 
+              style={{ 
+                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                borderRadius: 50,
+                padding: 8,
+              }} 
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={Settings}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons 
+              name="cog" 
+              size={size} 
+              color={color} 
+              style={{ 
+                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                borderRadius: 50,
+                padding: 8,
+              }} 
+            />
+          ),
         }}
       />
     </Tab.Navigator>

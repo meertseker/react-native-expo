@@ -1,137 +1,84 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useUser } from '@clerk/clerk-expo';
+import apiService, { MealPlan } from '../services/api';
 
 type MealPlanDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MealPlanDetails'>;
 
-
-const MEAL_PLAN_DETAILS = {
-  '1': {
-    id: '1',
-    name: 'Weight Loss Plan',
-    duration: '4 weeks',
-    calories: 1800,
-    description: 'A balanced plan focused on healthy weight loss through portion control and nutrient-dense foods.',
-    progress: 65,
-    image: 'salad',
-    macros: {
-      protein: 30,
-      carbs: 40,
-      fats: 30
-    },
-    schedule: {
-      'Monday': {
-        breakfast: 'Greek yogurt with berries',
-        lunch: 'Grilled chicken salad',
-        dinner: 'Salmon with quinoa',
-        snacks: ['Apple', 'Almonds']
-      },
-      'Tuesday': {
-        breakfast: 'Oatmeal with banana',
-        lunch: 'Turkey wrap',
-        dinner: 'Vegetable stir-fry',
-        snacks: ['Protein shake']
-      }
-    },
-    groceryList: [
-      'Chicken breast',
-      'Salmon fillets',
-      'Greek yogurt',
-      'Mixed berries',
-      'Quinoa',
-      'Almonds'
-    ]
-  },
-  '2': {
-    id: '1',
-    name: 'Weight Loss Plan',
-    duration: '4 weeks',
-    calories: 1800,
-    description: 'A balanced plan focused on healthy weight loss through portion control and nutrient-dense foods.',
-    progress: 65,
-    image: 'salad',
-    macros: {
-      protein: 30,
-      carbs: 40,
-      fats: 30
-    },
-    schedule: {
-      'Monday': {
-        breakfast: 'Greek yogurt with berries',
-        lunch: 'Grilled chicken salad',
-        dinner: 'Salmon with quinoa',
-        snacks: ['Apple', 'Almonds']
-      },
-      'Tuesday': {
-        breakfast: 'Oatmeal with banana',
-        lunch: 'Turkey wrap',
-        dinner: 'Vegetable stir-fry',
-        snacks: ['Protein shake']
-      }
-    },
-    groceryList: [
-      'Chicken breast',
-      'Salmon fillets',
-      'Greek yogurt',
-      'Mixed berries',
-      'Quinoa',
-      'Almonds'
-    ]
-  },
-  '3': {
-    id: '1',
-    name: 'Weight Loss Plan',
-    duration: '4 weeks',
-    calories: 1800,
-    description: 'A balanced plan focused on healthy weight loss through portion control and nutrient-dense foods.',
-    progress: 65,
-    image: 'salad',
-    macros: {
-      protein: 30,
-      carbs: 40,
-      fats: 30
-    },
-    schedule: {
-      'Monday': {
-        breakfast: 'Greek yogurt with berries',
-        lunch: 'Grilled chicken salad',
-        dinner: 'Salmon with quinoa',
-        snacks: ['Apple', 'Almonds']
-      },
-      'Tuesday': {
-        breakfast: 'Oatmeal with banana',
-        lunch: 'Turkey wrap',
-        dinner: 'Vegetable stir-fry',
-        snacks: ['Protein shake']
-      }
-    },
-    groceryList: [
-      'Chicken breast',
-      'Salmon fillets',
-      'Greek yogurt',
-      'Mixed berries',
-      'Quinoa',
-      'Almonds'
-    ]
-  },
-  // Add other plans similarly...
-};
-
 const MealPlanDetails: React.FC = () => {
   const navigation = useNavigation<MealPlanDetailsNavigationProp>();
-  const route = useRoute();
-  const { planId } = route.params as { planId: string };
+  const { user } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const plan = MEAL_PLAN_DETAILS[planId as keyof typeof MEAL_PLAN_DETAILS];
+  useEffect(() => {
+    loadMealPlan();
+  }, [user]);
 
-  if (!plan) {
+  const loadMealPlan = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      const data = await apiService.getMealPlan(user.id);
+      setMealPlan(data);
+    } catch (error) {
+      console.error('Failed to load meal plan details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateProgress = () => {
+    if (!mealPlan) return 0;
+    
+    const createdDate = new Date(mealPlan.meal_plan.created_at);
+    const today = new Date();
+    const daysPassed = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
+    const totalDays = 7;
+    
+    return Math.min(Math.round((daysPassed / totalDays) * 100), 100);
+  };
+
+  const getAverageCalories = () => {
+    if (!mealPlan) return 0;
+    
+    let totalCalories = 0;
+    mealPlan.meal_plan.days.forEach(day => {
+      totalCalories += apiService.calculateDailyCalories(mealPlan, day.day);
+    });
+    
+    return Math.round(totalCalories / mealPlan.meal_plan.days.length);
+  };
+
+  if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <Text className="text-lg text-gray-500">Plan not found</Text>
+      <SafeAreaView className="flex-1 bg-white justify-center items-center">
+        <ActivityIndicator size="large" color="#8A47EB" />
+        <Text className="mt-4 text-gray-600">Loading meal plan details...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!mealPlan) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center px-6">
+        <MaterialCommunityIcons name="food-off" size={80} color="#ccc" />
+        <Text className="text-xl text-gray-500 mt-4 font-semibold">No Meal Plan Found</Text>
+        <Text className="text-gray-400 text-center mt-2">
+          You don't have an active meal plan yet. Create one to get started!
+        </Text>
+        <TouchableOpacity 
+          className="bg-[#8A47EB] px-6 py-3 rounded-lg mt-6"
+          onPress={() => navigation.navigate('FirstMealForm')}
+        >
+          <Text className="text-white font-semibold">Create Meal Plan</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -139,13 +86,13 @@ const MealPlanDetails: React.FC = () => {
   const renderContent = () => {
     switch(activeTab) {
       case 'overview':
-        return <OverviewTab plan={plan} />;
+        return <OverviewTab mealPlan={mealPlan} />;
       case 'schedule':
-        return <ScheduleTab schedule={plan.schedule} />;
+        return <ScheduleTab mealPlan={mealPlan} />;
       case 'grocery':
-        return <GroceryTab groceries={plan.groceryList} />;
+        return <GroceryTab groceries={mealPlan.grocery_list} />;
       default:
-        return <OverviewTab plan={plan} />;
+        return <OverviewTab mealPlan={mealPlan} />;
     }
   };
 
@@ -166,18 +113,24 @@ const MealPlanDetails: React.FC = () => {
         {/* Plan Hero Section */}
         <View className="px-6 mt-6">
           <View className="bg-gray-100 rounded-xl p-4">
-            <Text className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</Text>
+            <Text className="text-2xl font-bold text-gray-900 mb-2">AI Generated Meal Plan</Text>
             <View className="flex-row justify-between mb-4">
               <View className="flex-row items-center">
                 <MaterialCommunityIcons name="calendar-range" size={16} color="#8A47EB" />
-                <Text className="text-sm text-gray-600 ml-1">{plan.duration}</Text>
+                <Text className="text-sm text-gray-600 ml-1">7 days</Text>
               </View>
               <View className="flex-row items-center">
                 <MaterialCommunityIcons name="fire" size={16} color="#FF6B6B" />
-                <Text className="text-sm text-gray-600 ml-1">{plan.calories} kcal/day</Text>
+                <Text className="text-sm text-gray-600 ml-1">{getAverageCalories()} kcal/day</Text>
+              </View>
+              <View className="flex-row items-center">
+                <MaterialCommunityIcons name="food" size={16} color="#10b981" />
+                <Text className="text-sm text-gray-600 ml-1">
+                  {mealPlan.meal_plan.days.reduce((total, day) => total + day.meals.length, 0)} meals
+                </Text>
               </View>
             </View>
-            <ProgressBar progress={plan.progress} />
+            <ProgressBar progress={calculateProgress()} />
           </View>
         </View>
 
@@ -204,11 +157,17 @@ const MealPlanDetails: React.FC = () => {
 
       {/* Action Buttons */}
       <View className="flex-row justify-between p-4 bg-white border-t border-gray-100">
-        <TouchableOpacity className="bg-gray-100 px-6 py-3 rounded-lg flex-1 mr-2">
-          <Text className="text-center text-gray-900 font-medium">Edit Plan</Text>
+        <TouchableOpacity 
+          className="bg-gray-100 px-6 py-3 rounded-lg flex-1 mr-2"
+          onPress={() => navigation.navigate('FirstMealForm')}
+        >
+          <Text className="text-center text-gray-900 font-medium">Create New Plan</Text>
         </TouchableOpacity>
-        <TouchableOpacity className="bg-purple-600 px-6 py-3 rounded-lg flex-1 ml-2">
-          <Text className="text-center text-white font-medium">Mark Completed</Text>
+        <TouchableOpacity 
+          className="bg-purple-600 px-6 py-3 rounded-lg flex-1 ml-2"
+          onPress={() => navigation.navigate('MainTabs')}
+        >
+          <Text className="text-center text-white font-medium">Back to App</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -227,65 +186,114 @@ const ProgressBar = ({ progress }: { progress: number }) => (
   </View>
 );
 
-const OverviewTab = ({ plan }: { plan: any }) => (
+const OverviewTab = ({ mealPlan }: { mealPlan: MealPlan }) => (
   <View>
-    <Text className="text-base text-gray-600 mb-4">{plan.description}</Text>
+    <Text className="text-base text-gray-600 mb-4">
+      Your personalized 7-day nutrition plan created by AI based on your preferences and goals.
+    </Text>
     
-    <Text className="text-lg font-bold text-gray-900 mb-3">Nutritional Breakdown</Text>
+    <Text className="text-lg font-bold text-gray-900 mb-3">Plan Statistics</Text>
     <View className="flex-row justify-between mb-4">
-      <MacroPill icon="protein" value={plan.macros.protein} label="Protein" />
-      <MacroPill icon="pasta" value={plan.macros.carbs} label="Carbs" />
-      <MacroPill icon="avocado" value={plan.macros.fats} label="Fats" />
+      <StatCard 
+        icon="calendar-range" 
+        value={mealPlan.meal_plan.days.length.toString()} 
+        label="Days" 
+      />
+      <StatCard 
+        icon="food" 
+        value={mealPlan.meal_plan.days.reduce((total, day) => total + day.meals.length, 0).toString()} 
+        label="Total Meals" 
+      />
+      <StatCard 
+        icon="basket" 
+        value={mealPlan.grocery_list.length.toString()} 
+        label="Ingredients" 
+      />
+    </View>
+
+    <Text className="text-lg font-bold text-gray-900 mb-3">Quick Overview</Text>
+    <View className="bg-blue-50 p-4 rounded-lg mb-4">
+      <Text className="text-blue-800 font-medium mb-2">Plan Details:</Text>
+      <Text className="text-blue-700 text-sm">
+        • Created on {new Date(mealPlan.meal_plan.created_at).toLocaleDateString()}{'\n'}
+        • Covers {mealPlan.meal_plan.days.length} days of meals{'\n'}
+        • Includes {mealPlan.grocery_list.length} unique ingredients{'\n'}
+        • Tailored to your dietary preferences
+      </Text>
     </View>
   </View>
 );
 
-const MacroPill = ({ icon, value, label }: { icon: string; value: number; label: string }) => (
+const StatCard = ({ icon, value, label }: { icon: string; value: string; label: string }) => (
   <View className="items-center bg-gray-50 p-3 rounded-xl flex-1 mx-1">
     <MaterialCommunityIcons 
-      name={icon} 
+      name={icon as any} 
       size={24} 
       color="#8A47EB" 
       className="mb-1"
     />
-    <Text className="font-bold text-gray-900">{value}%</Text>
+    <Text className="font-bold text-gray-900">{value}</Text>
     <Text className="text-xs text-gray-500">{label}</Text>
   </View>
 );
 
-const ScheduleTab = ({ schedule }: { schedule: any }) => (
-  <View>
-    {Object.entries(schedule).map(([day, meals]: [string, any]) => (
-      <View key={day} className="mb-4 bg-gray-50 rounded-xl p-3">
-        <Text className="font-bold text-gray-900 mb-2">{day}</Text>
-        <MealTime time="Breakfast" meal={meals.breakfast} />
-        <MealTime time="Lunch" meal={meals.lunch} />
-        <MealTime time="Dinner" meal={meals.dinner} />
-        {meals.snacks.map((snack: string, index: number) => (
-          <MealTime key={index} time="Snack" meal={snack} />
-        ))}
-      </View>
-    ))}
-  </View>
-);
-
-const MealTime = ({ time, meal }: { time: string; meal: string }) => (
-  <View className="flex-row items-center mb-2">
-    <Text className="text-sm text-gray-500 w-20">{time}</Text>
-    <View className="flex-1 bg-white p-2 rounded-lg">
-      <Text className="text-gray-900">{meal}</Text>
+const ScheduleTab = ({ mealPlan }: { mealPlan: MealPlan }) => {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  return (
+    <View>
+      {mealPlan.meal_plan.days.map((dayPlan) => (
+        <View key={dayPlan.day} className="mb-4 bg-gray-50 rounded-xl p-3">
+          <Text className="font-bold text-gray-900 mb-2">
+            Day {dayPlan.day} - {dayNames[dayPlan.day === 7 ? 0 : dayPlan.day]}
+          </Text>
+          {dayPlan.meals.map((meal, index) => (
+            <MealCard key={meal.meal_id} meal={meal} />
+          ))}
+        </View>
+      ))}
     </View>
+  );
+};
+
+const MealCard = ({ meal }: { meal: any }) => (
+  <View className="mb-3 bg-white p-3 rounded-lg">
+    <View className="flex-row justify-between items-start mb-2">
+      <Text className="font-medium text-gray-900">{meal.meal_name}</Text>
+      <View className="bg-purple-100 px-2 py-1 rounded">
+        <Text className="text-purple-700 text-xs font-medium">{meal.meal_type}</Text>
+      </View>
+    </View>
+    <Text className="text-gray-600 text-sm mb-2">Ingredients:</Text>
+    {meal.ingredients.slice(0, 3).map((ingredient: any, index: number) => (
+      <Text key={ingredient.ingredient_id} className="text-gray-500 text-xs">
+        • {ingredient.ingredient_name} ({ingredient.quantity} {ingredient.unit})
+      </Text>
+    ))}
+    {meal.ingredients.length > 3 && (
+      <Text className="text-gray-400 text-xs mt-1">
+        +{meal.ingredients.length - 3} more ingredients
+      </Text>
+    )}
   </View>
 );
 
-const GroceryTab = ({ groceries }: { groceries: string[] }) => (
-  <View className="bg-gray-50 rounded-xl p-3">
-    {groceries.map((item, index) => (
-      <View key={index} className="flex-row items-center py-2 border-b border-gray-200 last:border-0">
-        <MaterialCommunityIcons name="checkbox-blank-outline" size={20} color="#8A47EB" />
-        <Text className="ml-3 text-gray-900">{item}</Text>
-      </View>
-    ))}
+const GroceryTab = ({ groceries }: { groceries: Array<{ grocery_id: string; name: string; quantity: number; unit: string }> }) => (
+  <View>
+    <Text className="text-lg font-bold text-gray-900 mb-3">
+      Shopping List ({groceries.length} items)
+    </Text>
+    <View className="bg-gray-50 rounded-xl p-3">
+      {groceries.map((item, index) => (
+        <View key={item.grocery_id || index} className="flex-row items-center py-3 border-b border-gray-200 last:border-0">
+          <MaterialCommunityIcons name="checkbox-blank-outline" size={20} color="#8A47EB" />
+          <View className="ml-3 flex-1">
+            <Text className="text-gray-900 font-medium">{item.name}</Text>
+            <Text className="text-gray-500 text-sm">{item.quantity} {item.unit}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
   </View>
 );
 

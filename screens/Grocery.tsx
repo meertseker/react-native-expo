@@ -218,24 +218,42 @@ const Grocery = () => {
           <Text className="text-blue-600 text-sm mb-1">• Check expiration dates for dairy products</Text>
           <Text className="text-blue-600 text-sm">• Consider buying in bulk for non-perishables</Text>
         </View>
+
+        {/* Extra padding for bottom navigation */}
+        <View className="h-32" />
       </ScrollView>
 
-      {/* Action Buttons */}
-      <View className="px-4 py-4 bg-white border-t border-gray-100">
-        <View className="flex-row space-x-3">
-          <TouchableOpacity className="flex-1 bg-gray-100 py-3 rounded-lg items-center">
-            <View className="flex-row items-center">
-              <Ionicons name="share-outline" size={20} color="#374151" />
-              <Text className="ml-2 text-gray-700 font-medium">Share List</Text>
-            </View>
-          </TouchableOpacity>
-          
-          <TouchableOpacity className="flex-1 bg-[#8A47EB] py-3 rounded-lg items-center">
-            <View className="flex-row items-center">
-              <Ionicons name="refresh" size={20} color="white" />
-              <Text className="ml-2 text-white font-medium">Refresh List</Text>
-            </View>
-          </TouchableOpacity>
+      {/* Action Buttons - Now floating above navigation bar */}
+      <View className="absolute bottom-20 left-0 right-0 px-4 py-4">
+        <View className="bg-white rounded-2xl shadow-xl p-4">
+          <View className="flex-row space-x-3">
+            <TouchableOpacity className="flex-1 bg-gray-100 py-3 rounded-lg items-center">
+              <View className="flex-row items-center">
+                <Ionicons name="share-outline" size={20} color="#374151" />
+                <Text className="ml-2 text-gray-700 font-medium">Share List</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              className="flex-1 bg-[#8A47EB] py-3 rounded-lg items-center"
+              onPress={loadGroceryList}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="refresh" size={20} color="white" />
+                <Text className="ml-2 text-white font-medium">Refresh List</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Progress Summary */}
+          <View className="mt-4 flex-row justify-between items-center">
+            <Text className="text-gray-500">
+              {getCheckedCount()} of {getTotalItems()} items collected
+            </Text>
+            <TouchableOpacity onPress={clearAllChecked}>
+              <Text className="text-[#8A47EB] font-medium">Clear All</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>

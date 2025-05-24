@@ -3,9 +3,12 @@ import os
 from dotenv import load_dotenv
 import json
 import re
-from datetime import datetime
+from datetime import datetime, date
 import google.generativeai as genai
-from models import db, User, UserForm, Allergy, UserAllergy, MealPlan, Meal, Ingredient, MealIngredient, GroceryItem
+from google.cloud import vision
+import base64
+import requests
+from models import db, User, UserForm, Allergy, UserAllergy, MealPlan, Meal, Ingredient, MealIngredient, GroceryItem, ConsumedMeal, FoodRecognition, DailyNutrition
 from flask_cors import CORS
 
 def create_app():
@@ -18,9 +21,9 @@ def create_app():
     db.init_app(app)
     
     with app.app_context():
-        db.drop_all()  # Drop tables to ensure fresh schema
+        # Only create tables if they don't exist - DON'T drop existing data
         db.create_all()
-        print("Tables dropped and created successfully.")
+        print("Database tables initialized successfully.")
     
     return app
 
@@ -146,6 +149,127 @@ def generate_and_save_meal_plan(user_id):
     
     db.session.commit()
 
+def analyze_food_image(image_base64):
+    """Analyze food image using Google Generative AI for food recognition and calorie estimation"""
+    try:
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        # Decode base64 image
+        image_data = base64.b64decode(image_base64)
+        
+        prompt = """
+        Analyze this food image and provide detailed nutritional information. Return ONLY a valid JSON object with this exact structure:
+        {
+          "foods": [
+            {
+              "name": "Food name",
+              "confidence": 0.95,
+              "estimated_quantity": 150,
+              "unit": "grams",
+              "calories": 250,
+              "protein": 15.5,
+              "carbs": 30.2,
+              "fat": 8.1,
+              "fiber": 3.2
+            }
+          ],
+          "total_calories": 250,
+          "meal_description": "Brief description of the meal"
+        }
+        
+        Be as accurate as possible with portion size estimation. If multiple foods are visible, list each separately.
+        Return only the JSON object, no additional text.
+        """
+        
+        # Create the image part for the API
+        image_part = {
+            "mime_type": "image/jpeg",
+            "data": image_data
+        }
+        
+        response = model.generate_content([prompt, image_part])
+        ai_response = response.text
+        
+        print(f"Food Recognition Response: {ai_response}")
+        
+        # Extract JSON if necessary
+        json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+            try:
+                result = json.loads(json_str)
+                return result
+            except json.JSONDecodeError as e:
+                print(f"JSON Decode Error: {e}")
+                return None
+        else:
+            return None
+            
+    except Exception as e:
+        print(f"Error analyzing food image: {e}")
+        return None
+
+def update_daily_nutrition(user_id, consumed_meal):
+    """Update daily nutrition totals for a user"""
+    try:
+        today = date.today()
+        
+        # Get or create daily nutrition record
+        daily_nutrition = DailyNutrition.query.filter_by(
+            user_id=user_id, 
+            date=today
+        ).first()
+        
+        if not daily_nutrition:
+            # Calculate target calories based on user form
+            user = User.query.get(user_id)
+            target_calories = 2000  # Default
+            if user and user.user_form:
+                # Simple BMR calculation (can be enhanced)
+                form = user.user_form
+                if user.gender == 'male':
+                    bmr = 88.362 + (13.397 * form.current_weight) + (4.799 * form.height) - (5.677 * (user.age or 25))
+                else:
+                    bmr = 447.593 + (9.247 * form.current_weight) + (3.098 * form.height) - (4.330 * (user.age or 25))
+                
+                # Apply activity multiplier
+                activity_multipliers = {
+                    'sedentary': 1.2,
+                    'light': 1.375,
+                    'moderate': 1.55,
+                    'active': 1.725,
+                    'very_active': 1.9
+                }
+                multiplier = activity_multipliers.get(form.activity_frequency, 1.5)
+                target_calories = bmr * multiplier
+            
+            daily_nutrition = DailyNutrition(
+                user_id=user_id,
+                date=today,
+                target_calories=target_calories,
+                target_protein=target_calories * 0.3 / 4,  # 30% protein
+                target_carbs=target_calories * 0.4 / 4,    # 40% carbs
+                target_fat=target_calories * 0.3 / 9       # 30% fat
+            )
+            db.session.add(daily_nutrition)
+        
+        # Update totals
+        daily_nutrition.total_calories += consumed_meal.calories
+        daily_nutrition.total_protein += consumed_meal.protein or 0
+        daily_nutrition.total_carbs += consumed_meal.carbs or 0
+        daily_nutrition.total_fat += consumed_meal.fat or 0
+        daily_nutrition.total_fiber += consumed_meal.fiber or 0
+        daily_nutrition.meals_consumed += 1
+        daily_nutrition.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        return daily_nutrition
+        
+    except Exception as e:
+        print(f"Error updating daily nutrition: {e}")
+        db.session.rollback()
+        return None
 
 @app.route('/chatbot', methods=['POST'])
 def chatbot():
@@ -409,6 +533,236 @@ def get_meal_plan():
     
     except Exception as e:
         print(f"Error fetching meal plan: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/scanMeal', methods=['POST'])
+def scan_meal():
+    """Scan and analyze a meal image"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['clerk_user_id', 'image_base64']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        clerk_user_id = data['clerk_user_id']
+        image_base64 = data['image_base64']
+        meal_type = data.get('meal_type', 'unknown')
+        
+        # Find user
+        user = User.query.filter_by(clerk_user_id=clerk_user_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Analyze image with AI
+        analysis_result = analyze_food_image(image_base64)
+        if not analysis_result:
+            return jsonify({"error": "Failed to analyze food image"}), 400
+        
+        # Create consumed meal record
+        consumed_meal = ConsumedMeal(
+            user_id=user.id,
+            meal_name=analysis_result.get('meal_description', 'Scanned Meal'),
+            meal_type=meal_type,
+            calories=analysis_result.get('total_calories', 0),
+            protein=sum(food.get('protein', 0) for food in analysis_result.get('foods', [])),
+            carbs=sum(food.get('carbs', 0) for food in analysis_result.get('foods', [])),
+            fat=sum(food.get('fat', 0) for food in analysis_result.get('foods', [])),
+            fiber=sum(food.get('fiber', 0) for food in analysis_result.get('foods', [])),
+            recognition_confidence=analysis_result.get('foods', [{}])[0].get('confidence', 0) if analysis_result.get('foods') else 0,
+            source='scan'
+        )
+        db.session.add(consumed_meal)
+        db.session.flush()
+        
+        # Create food recognition records
+        for food in analysis_result.get('foods', []):
+            food_recognition = FoodRecognition(
+                consumed_meal_id=consumed_meal.consumed_meal_id,
+                food_name=food.get('name', 'Unknown Food'),
+                confidence_score=food.get('confidence', 0),
+                estimated_quantity=food.get('estimated_quantity'),
+                estimated_unit=food.get('unit'),
+                calories_per_serving=food.get('calories')
+            )
+            db.session.add(food_recognition)
+        
+        db.session.commit()
+        
+        # Update daily nutrition
+        daily_nutrition = update_daily_nutrition(user.id, consumed_meal)
+        
+        # Return response
+        response_data = {
+            "success": True,
+            "consumed_meal_id": consumed_meal.consumed_meal_id,
+            "analysis": analysis_result,
+            "nutrition_summary": {
+                "calories": consumed_meal.calories,
+                "protein": consumed_meal.protein,
+                "carbs": consumed_meal.carbs,
+                "fat": consumed_meal.fat,
+                "fiber": consumed_meal.fiber
+            }
+        }
+        
+        if daily_nutrition:
+            response_data["daily_progress"] = {
+                "total_calories": daily_nutrition.total_calories,
+                "target_calories": daily_nutrition.target_calories,
+                "calories_remaining": (daily_nutrition.target_calories or 0) - daily_nutrition.total_calories,
+                "meals_consumed": daily_nutrition.meals_consumed
+            }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error scanning meal: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/getDailyNutrition', methods=['POST'])
+def get_daily_nutrition():
+    """Get daily nutrition progress for a user"""
+    try:
+        data = request.get_json()
+        clerk_user_id = data.get('clerk_user_id')
+        target_date = data.get('date')  # YYYY-MM-DD format, defaults to today
+        
+        if not clerk_user_id:
+            return jsonify({"error": "clerk_user_id is required"}), 400
+        
+        # Find user
+        user = User.query.filter_by(clerk_user_id=clerk_user_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Parse date
+        if target_date:
+            try:
+                query_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+        else:
+            query_date = date.today()
+        
+        # Get daily nutrition
+        daily_nutrition = DailyNutrition.query.filter_by(
+            user_id=user.id,
+            date=query_date
+        ).first()
+        
+        # Get consumed meals for the day
+        consumed_meals = ConsumedMeal.query.filter(
+            ConsumedMeal.user_id == user.id,
+            db.func.date(ConsumedMeal.consumed_at) == query_date
+        ).all()
+        
+        # Prepare response
+        response_data = {
+            "date": query_date.isoformat(),
+            "nutrition": {
+                "total_calories": daily_nutrition.total_calories if daily_nutrition else 0,
+                "total_protein": daily_nutrition.total_protein if daily_nutrition else 0,
+                "total_carbs": daily_nutrition.total_carbs if daily_nutrition else 0,
+                "total_fat": daily_nutrition.total_fat if daily_nutrition else 0,
+                "total_fiber": daily_nutrition.total_fiber if daily_nutrition else 0,
+                "target_calories": daily_nutrition.target_calories if daily_nutrition else 2000,
+                "target_protein": daily_nutrition.target_protein if daily_nutrition else 150,
+                "target_carbs": daily_nutrition.target_carbs if daily_nutrition else 200,
+                "target_fat": daily_nutrition.target_fat if daily_nutrition else 67,
+                "meals_consumed": daily_nutrition.meals_consumed if daily_nutrition else 0
+            },
+            "consumed_meals": []
+        }
+        
+        # Add consumed meals details
+        for meal in consumed_meals:
+            meal_data = {
+                "consumed_meal_id": meal.consumed_meal_id,
+                "meal_name": meal.meal_name,
+                "meal_type": meal.meal_type,
+                "calories": meal.calories,
+                "protein": meal.protein,
+                "carbs": meal.carbs,
+                "fat": meal.fat,
+                "fiber": meal.fiber,
+                "consumed_at": meal.consumed_at.isoformat(),
+                "source": meal.source,
+                "recognition_confidence": meal.recognition_confidence
+            }
+            response_data["consumed_meals"].append(meal_data)
+        
+        # Calculate progress percentages
+        nutrition = response_data["nutrition"]
+        response_data["progress"] = {
+            "calories_percent": min((nutrition["total_calories"] / nutrition["target_calories"]) * 100, 100) if nutrition["target_calories"] > 0 else 0,
+            "protein_percent": min((nutrition["total_protein"] / nutrition["target_protein"]) * 100, 100) if nutrition["target_protein"] > 0 else 0,
+            "carbs_percent": min((nutrition["total_carbs"] / nutrition["target_carbs"]) * 100, 100) if nutrition["target_carbs"] > 0 else 0,
+            "fat_percent": min((nutrition["total_fat"] / nutrition["target_fat"]) * 100, 100) if nutrition["target_fat"] > 0 else 0,
+        }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        print(f"Error getting daily nutrition: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/logMealManually', methods=['POST'])
+def log_meal_manually():
+    """Manually log a meal without scanning"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['clerk_user_id', 'meal_name', 'calories']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        clerk_user_id = data['clerk_user_id']
+        
+        # Find user
+        user = User.query.filter_by(clerk_user_id=clerk_user_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Create consumed meal record
+        consumed_meal = ConsumedMeal(
+            user_id=user.id,
+            meal_name=data['meal_name'],
+            meal_type=data.get('meal_type', 'unknown'),
+            calories=data['calories'],
+            protein=data.get('protein', 0),
+            carbs=data.get('carbs', 0),
+            fat=data.get('fat', 0),
+            fiber=data.get('fiber', 0),
+            source='manual'
+        )
+        db.session.add(consumed_meal)
+        db.session.commit()
+        
+        # Update daily nutrition
+        daily_nutrition = update_daily_nutrition(user.id, consumed_meal)
+        
+        response_data = {
+            "success": True,
+            "consumed_meal_id": consumed_meal.consumed_meal_id,
+            "message": "Meal logged successfully"
+        }
+        
+        if daily_nutrition:
+            response_data["daily_progress"] = {
+                "total_calories": daily_nutrition.total_calories,
+                "target_calories": daily_nutrition.target_calories,
+                "calories_remaining": (daily_nutrition.target_calories or 0) - daily_nutrition.total_calories
+            }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error logging meal manually: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
