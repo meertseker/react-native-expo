@@ -11,7 +11,7 @@ npm-debug.*
 web-build/
 backend/myvenv/
 backend/__pycache__/
-
+/backend
 
 
 ios

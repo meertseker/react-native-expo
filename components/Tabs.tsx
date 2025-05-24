@@ -1,158 +1,165 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import Home from '../screens/Home';
-import Grocery from '../screens/Grocery';
 import MealPlan from '../screens/MealPlan';
 import Progress from '../screens/Progress';
-import Settings from '../screens/Settings';
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 const Tab = createBottomTabNavigator();
 
 export default function Tabs({ navigation }: any) {
-  const ChatButton: React.FC<BottomTabBarButtonProps> = (props) => (
-    <TouchableOpacity
-      onPress={() => navigation.navigate('Chat')}
-      style={[
-        props.style, 
-        {
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 60,
-          marginBottom: 8.5,
-        }
-      ]}
-    >
-      <MaterialCommunityIcons 
-        name="message-text-outline" 
-        size={24} 
-        color="#A8B5DB" 
-        style={{ 
-          backgroundColor: 'transparent',
-          borderRadius: 20,
-          padding: 8,
-        }} 
-      />
-    </TouchableOpacity>
-  );
+  const chatScale = useSharedValue(1);
+  
+  const animatedChatStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: chatScale.value }],
+  }));
+
+  const handleChatPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    chatScale.value = withSpring(0.85, {}, () => {
+      chatScale.value = withSpring(1);
+    });
+    navigation.navigate('Chat');
+  };
 
   return (
-    <Tab.Navigator
-      screenOptions={{
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: 'white',
-        tabBarInactiveTintColor: '#A8B5DB',
-        tabBarItemStyle: {
-          height: 60,
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
-        tabBarStyle: {
-          backgroundColor: 'rgba(0, 0, 0, 0.7)', 
-          borderRadius: 30,
-          marginHorizontal: 20,
-          marginBottom: 20,
-          height: 60,
-          borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.1)",
-          elevation: 8,
-          shadowColor: '#FFFFFF',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 6,
-          paddingHorizontal: 0,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-        }
-      }}
-    >
-      <Tab.Screen
-        name="Home"
-        component={Home}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons 
-              name="home" 
-              size={size} 
-              color={color} 
-              style={{ 
-                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,
-                padding: 8,
-              }} 
-            />
-          ),
+    <>
+      <Tab.Navigator
+        screenOptions={{
+          tabBarShowLabel: true,
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '600',
+            marginBottom: 4,
+          },
+          tabBarActiveTintColor: '#8A47EB',
+          tabBarInactiveTintColor: '#9CA3AF',
+          tabBarItemStyle: {
+            height: 60,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingTop: 8,
+          },
+          tabBarStyle: {
+            backgroundColor: 'white',
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
+            height: 85,
+            paddingBottom: 20,
+            paddingTop: 5,
+          }
         }}
-      />
-      <Tab.Screen
-        name="MealPlan"
-        component={MealPlan}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons 
-              name="food-fork-drink" 
-              size={size} 
-              color={color} 
-              style={{ 
-                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,
-                padding: 8,
-              }} 
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ChatTab"
-        component={Home}
-        options={{
-          tabBarButton: (props) => <ChatButton {...props} />
-        }}
-      />
-      <Tab.Screen
-        name="Grocery"
-        component={Grocery}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons 
-              name="basket" 
-              size={size} 
-              color={color} 
-              style={{ 
-                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,
-                padding: 8,
-              }} 
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={Settings}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons 
-              name="cog" 
-              size={size} 
-              color={color} 
-              style={{ 
-                backgroundColor: color === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'transparent',
-                borderRadius: 50,
-                padding: 8,
-              }} 
-            />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen
+          name="Home"
+          component={Home}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Home',
+            tabBarIcon: ({ color, size, focused }) => (
+              <View 
+                className="items-center justify-center"
+                style={{
+                  backgroundColor: focused ? '#8A47EB15' : 'transparent',
+                  borderRadius: 12,
+                  width: 48,
+                  height: 32,
+                }}
+              >
+                <MaterialCommunityIcons 
+                  name={focused ? "home" : "home-outline"} 
+                  size={24} 
+                  color={color} 
+                />
+              </View>
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Meals"
+          component={MealPlan}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Meals',
+            tabBarIcon: ({ color, size, focused }) => (
+              <View 
+                className="items-center justify-center"
+                style={{
+                  backgroundColor: focused ? '#8A47EB15' : 'transparent',
+                  borderRadius: 12,
+                  width: 48,
+                  height: 32,
+                }}
+              >
+                <MaterialCommunityIcons 
+                  name={focused ? "food-fork-drink" : "food-outline"} 
+                  size={24} 
+                  color={color} 
+                />
+              </View>
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Progress"
+          component={Progress}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Progress',
+            tabBarIcon: ({ color, size, focused }) => (
+              <View 
+                className="items-center justify-center"
+                style={{
+                  backgroundColor: focused ? '#8A47EB15' : 'transparent',
+                  borderRadius: 12,
+                  width: 48,
+                  height: 32,
+                }}
+              >
+                <MaterialCommunityIcons 
+                  name={focused ? "chart-line" : "chart-line-variant"} 
+                  size={24} 
+                  color={color} 
+                />
+              </View>
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      
+      {/* Floating AI Chat Button */}
+      <Animated.View 
+        style={[
+          animatedChatStyle,
+          {
+            position: 'absolute',
+            bottom: 110,
+            right: 20,
+            zIndex: 1000,
+          }
+        ]}
+      >
+        <TouchableOpacity
+          onPress={handleChatPress}
+          className="w-14 h-14 bg-[#8A47EB] rounded-full items-center justify-center shadow-lg"
+          style={{
+            shadowColor: '#8A47EB',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          <MaterialCommunityIcons 
+            name="robot-outline" 
+            size={24} 
+            color="white" 
+          />
+        </TouchableOpacity>
+      </Animated.View>
+    </>
   );
 }

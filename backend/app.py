@@ -152,11 +152,20 @@ def generate_and_save_meal_plan(user_id):
 def analyze_food_image(image_base64):
     """Analyze food image using Google Generative AI for food recognition and calorie estimation"""
     try:
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            print("Error: GEMINI_API_KEY not found in environment variables")
+            return None
+            
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")
         
         # Decode base64 image
-        image_data = base64.b64decode(image_base64)
+        try:
+            image_data = base64.b64decode(image_base64)
+        except Exception as e:
+            print(f"Error decoding base64 image: {e}")
+            return None
         
         prompt = """
         Analyze this food image and provide detailed nutritional information. Return ONLY a valid JSON object with this exact structure:
@@ -188,10 +197,13 @@ def analyze_food_image(image_base64):
             "data": image_data
         }
         
-        response = model.generate_content([prompt, image_part])
-        ai_response = response.text
-        
-        print(f"Food Recognition Response: {ai_response}")
+        try:
+            response = model.generate_content([prompt, image_part])
+            ai_response = response.text
+            print(f"Food Recognition Response: {ai_response}")
+        except Exception as e:
+            print(f"Error calling Gemini API: {e}")
+            return None
         
         # Extract JSON if necessary
         json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
@@ -204,10 +216,10 @@ def analyze_food_image(image_base64):
                 print(f"JSON Decode Error: {e}")
                 return None
         else:
+            print("No JSON object found in AI response")
             return None
-            
     except Exception as e:
-        print(f"Error analyzing food image: {e}")
+        print(f"Unexpected error in analyze_food_image: {e}")
         return None
 
 def update_daily_nutrition(user_id, consumed_meal):
@@ -558,7 +570,11 @@ def scan_meal():
         # Analyze image with AI
         analysis_result = analyze_food_image(image_base64)
         if not analysis_result:
-            return jsonify({"error": "Failed to analyze food image"}), 400
+            api_key_status = "Not found" if not os.getenv("GEMINI_API_KEY") else "Present"
+            return jsonify({
+                "error": "Failed to analyze food image",
+                "details": f"API Key Status: {api_key_status}. Check server logs for more details."
+            }), 400
         
         # Create consumed meal record
         consumed_meal = ConsumedMeal(
@@ -620,7 +636,10 @@ def scan_meal():
     except Exception as e:
         db.session.rollback()
         print(f"Error scanning meal: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": str(e),
+            "details": "An unexpected error occurred during meal scanning. Check server logs for details."
+        }), 500
 
 @app.route('/getDailyNutrition', methods=['POST'])
 def get_daily_nutrition():

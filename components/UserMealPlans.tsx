@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,34 +6,13 @@ import { RootStackParamList } from '../App';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import apiService, { MealPlan } from '../services/api';
+import { useMealPlan } from '../contexts/MealPlanContext';
 
 type MealPlansScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'UserMeals'>;
 
 const MealPlansScreen: React.FC = () => {
   const navigation = useNavigation<MealPlansScreenNavigationProp>();
-  const { user } = useUser();
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadMealPlans();
-  }, [user]);
-
-  const loadMealPlans = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setLoading(true);
-      const data = await apiService.getMealPlan(user.id);
-      setMealPlan(data);
-    } catch (error) {
-      console.error('Failed to load meal plans:', error);
-      // Don't show error alert for 404 - just means no meal plan exists
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { mealPlan, loading, refetch } = useMealPlan();
 
   const handleMealPlanPress = () => {
     if (mealPlan) {
@@ -41,24 +20,17 @@ const MealPlansScreen: React.FC = () => {
     }
   };
 
-  const handleRefresh = () => {
-    loadMealPlans();
-  };
-
   const handleGroceryPress = () => {
-    // Navigate back to main tabs and switch to Grocery tab
     navigation.navigate('MainTabs');
-    // Note: Tab switching will need to be handled by the parent navigator
   };
 
   const calculateProgress = () => {
     if (!mealPlan) return 0;
     
-    // Calculate progress based on days passed since creation
     const createdDate = new Date(mealPlan.meal_plan.created_at);
     const today = new Date();
     const daysPassed = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
-    const totalDays = 7; // 7-day meal plan
+    const totalDays = 7;
     
     return Math.min(Math.round((daysPassed / totalDays) * 100), 100);
   };
@@ -86,7 +58,7 @@ const MealPlansScreen: React.FC = () => {
       totalCalories += apiService.calculateDailyCalories(mealPlan, day.day);
     });
     
-    return Math.round(totalCalories / mealPlan.meal_plan.days.length); // Average daily calories
+    return Math.round(totalCalories / mealPlan.meal_plan.days.length);
   };
 
   if (loading) {
@@ -107,7 +79,7 @@ const MealPlansScreen: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text className="text-2xl font-bold text-gray-900">My Meal Plans</Text>
-          <TouchableOpacity className="p-2" onPress={handleRefresh}>
+          <TouchableOpacity className="p-2" onPress={refetch}>
             <Ionicons name="refresh" size={24} color="#8A47EB" />
           </TouchableOpacity>
         </View>
@@ -164,7 +136,7 @@ const MealPlansScreen: React.FC = () => {
         </ScrollView>
         
         {/* Action Buttons */}
-        <View className="pb-6 pt-2 flex-row space-x-3">
+        <View className="flex-row space-x-3 py-4">
           <TouchableOpacity 
             className="bg-[#8A47EB] flex-1 py-4 rounded-xl flex-row justify-center items-center"
             onPress={() => navigation.navigate('FirstMealForm')}
@@ -195,9 +167,9 @@ interface MealPlanCardProps {
   onPress: () => void;
 }
 
-const MealPlanCard: React.FC<MealPlanCardProps> = ({ mealPlan, progress, lastUpdated, onPress }) => {
-  const totalMeals = mealPlan.meal_plan.days.reduce((total, day) => total + day.meals.length, 0);
-  const avgCalories = apiService.calculateDailyCalories(mealPlan, 1); // Get calories for day 1 as sample
+const MealPlanCard = ({ mealPlan, progress, lastUpdated, onPress }: MealPlanCardProps) => {
+  const totalMeals = mealPlan.meal_plan.days.reduce((total: number, day) => total + day.meals.length, 0);
+  const avgCalories = apiService.calculateDailyCalories(mealPlan, 1);
 
   return (
     <TouchableOpacity 
@@ -231,26 +203,13 @@ const MealPlanCard: React.FC<MealPlanCardProps> = ({ mealPlan, progress, lastUpd
         </View>
         
         {/* Progress bar */}
-        <View className="mb-3">
-          <View className="flex-row justify-between mb-1">
-            <Text className="text-sm font-medium text-gray-700">Plan Progress</Text>
-            <Text className="text-sm text-gray-500">{progress}%</Text>
-          </View>
-          <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <View 
-              className="h-full bg-[#8A47EB] rounded-full" 
-              style={{ width: `${progress}%` }} 
-            />
-          </View>
+        <View className="bg-gray-100 h-2 rounded-full overflow-hidden">
+          <View 
+            className="bg-[#8A47EB] h-full rounded-full" 
+            style={{ width: `${progress}%` }}
+          />
         </View>
-
-        <View className="flex-row justify-between items-center">
-          <Text className="text-xs text-gray-500">Created {lastUpdated}</Text>
-          <TouchableOpacity className="flex-row items-center">
-            <Text className="text-[#8A47EB] text-sm font-medium mr-1">View Details</Text>
-            <Ionicons name="chevron-forward" size={16} color="#8A47EB" />
-          </TouchableOpacity>
-        </View>
+        <Text className="text-gray-500 text-sm mt-2">Last updated {lastUpdated}</Text>
       </View>
     </TouchableOpacity>
   );
