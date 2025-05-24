@@ -11,10 +11,9 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
-
-const API_URL = 'https://mipvvnn83i.us-east-1.awsapprunner.com';
+import { useUser } from '@clerk/clerk-expo';
+import apiService from '../services/api';
 
 interface Message {
   id: string;
@@ -37,15 +36,16 @@ const TypingIndicator = () => {
       {[0, 1, 2].map((index) => (
         <View
           key={index}
-          className="w-2 h-2 bg-gray-500 rounded-full mx-1"
+          className="w-2 h-2 bg-gray-500 rounded-full mx-1 animate-pulse"
         />
       ))}
     </View>
   );
 };
 
-const RecipeAssistantApp = () => {
+const ChatScreen = () => {
   const navigation = useNavigation();
+  const { user } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,13 +56,18 @@ const RecipeAssistantApp = () => {
     setMessages([
       {
         id: '1',
-        text: 'Merhaba! Bugün yemek tarifi bakciagina spora basla bence aminakodum sismani!',
+        text: `Merhaba ${user?.firstName || 'Kullanıcı'}! Ben GainAI, senin kişisel beslenme asistanınım. Bugün nasıl yardımcı olabilirim? Yemek tarifi, beslenme önerisi veya herhangi bir sorun sorabilirsin.`,
         isUser: false,
         timestamp: new Date(),
-        options: ["ney?", "Gotumu mu siktireyim?"]
+        options: [
+          "Bugün ne yemek yapabilirim?", 
+          "Protein açısından zengin yemek öner", 
+          "Kilo verme için nasıl beslenmeliyim?",
+          "Spor öncesi ne yemeliyim?"
+        ]
       },
     ]);
-  }, []);
+  }, [user]);
 
   // Auto scroll to bottom when messages change
   useEffect(() => {
@@ -72,7 +77,7 @@ const RecipeAssistantApp = () => {
   }, [messages]);
 
   const sendMessage = async (text: string = inputText) => {
-    if (text.trim() === '') return;
+    if (text.trim() === '' || !user?.id) return;
     
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -86,21 +91,21 @@ const RecipeAssistantApp = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/chatbot`, {
+      const response = await apiService.chatWithBot({
         userInput: text,
-        clerk_user_id: 'clerk_123' // Replace with actual Clerk user ID
+        clerk_user_id: user.id
       });
 
       let botText;
       let botOptions: string[] = [];
       
-      if (response.data.name) {
+      if (response.name) {
         // Handle recipe response
-        botText = JSON.stringify(response.data);
-      } else if (response.data.text) {
+        botText = JSON.stringify(response);
+      } else if (response.text) {
         // Handle conversational response
-        botText = response.data.text;
-        botOptions = response.data.options || [];
+        botText = response.text;
+        botOptions = response.options || [];
       } else {
         botText = 'Üzgünüm, bir hata oluştu.';
       }
@@ -118,7 +123,7 @@ const RecipeAssistantApp = () => {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Bağlantı hatası. Lütfen daha sonra tekrar deneyin.',
+        text: 'Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
         isUser: false,
         timestamp: new Date(),
       };
@@ -163,8 +168,8 @@ const RecipeAssistantApp = () => {
       
       return (
         <View key={message.id} className="mb-4 mx-4">
-          <View className="bg-blue-50 p-4 rounded-3xl">
-            <Text className="text-blue-600 text-base font-medium text-right">{recipe.name}</Text>
+          <View className="bg-purple-50 p-4 rounded-3xl">
+            <Text className="text-[#8A47EB] text-base font-medium text-right">{recipe.name}</Text>
             
             <View className="mt-3 items-end">
               <View className="flex-row items-center justify-end">
@@ -180,11 +185,11 @@ const RecipeAssistantApp = () => {
                     <Ionicons 
                       name={
                         tag.includes("Vegan") || tag.includes("Vejetaryen") ? "leaf-outline" : 
-                        tag.includes("Kolay") ? "time-outline" : 
+                        tag.includes("Kolay") || tag.includes("Quick") ? "time-outline" : 
                         "restaurant-outline"
                       } 
-                      size={20} 
-                      color="#0070F0" 
+                      size={16} 
+                      color="#8A47EB" 
                     />
                   </View>
                 ))}
@@ -204,9 +209,12 @@ const RecipeAssistantApp = () => {
     if (message.isUser) {
       return (
         <View key={message.id} className="mb-4 ml-12 mr-4">
-          <View className="bg-blue-600 p-4 rounded-3xl rounded-tr-sm self-end">
+          <View className="bg-[#8A47EB] p-4 rounded-3xl rounded-tr-sm self-end">
             <Text className="text-white text-base">{message.text}</Text>
           </View>
+          <Text className="text-xs text-gray-400 text-right mt-1">
+            {formatTime(message.timestamp)}
+          </Text>
         </View>
       );
     }
@@ -214,24 +222,27 @@ const RecipeAssistantApp = () => {
     return (
       <View key={message.id} className="mb-4 mx-4 flex-row">
         {showAvatar && (
-          <View className="w-8 h-8 bg-blue-50 rounded-md mr-2 items-center justify-center">
-            <View className="w-4 h-4 bg-blue-500 rounded-sm"></View>
+          <View className="w-8 h-8 bg-purple-50 rounded-md mr-2 items-center justify-center">
+            <Ionicons name="nutrition" size={16} color="#8A47EB" />
           </View>
         )}
         <View className="flex-1">
           <View className="bg-gray-100 p-4 rounded-3xl rounded-tl-sm">
             <Text className="text-gray-800 text-base">{message.text}</Text>
           </View>
+          <Text className="text-xs text-gray-400 mt-1">
+            {formatTime(message.timestamp)}
+          </Text>
           
           {message.options && message.options.length > 0 && (
             <View className="mt-4 gap-2">
               {message.options.map((option, index) => (
                 <TouchableOpacity 
                   key={index}
-                  className="bg-blue-50 py-2.5 px-4 rounded-3xl"
+                  className="bg-purple-50 py-2.5 px-4 rounded-3xl border border-purple-100"
                   onPress={() => handleOptionClick(option)}
                 >
-                  <Text className="text-blue-600 text-base font-medium">{option}</Text>
+                  <Text className="text-[#8A47EB] text-base font-medium">{option}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -258,31 +269,51 @@ const RecipeAssistantApp = () => {
     return renderNormalMessage(message);
   };
 
+  const clearChat = () => {
+    setMessages([
+      {
+        id: '1',
+        text: `Merhaba ${user?.firstName || 'Kullanıcı'}! Ben GainAI, senin kişisel beslenme asistanınım. Bugün nasıl yardımcı olabilirim?`,
+        isUser: false,
+        timestamp: new Date(),
+        options: [
+          "Bugün ne yemek yapabilirim?", 
+          "Protein açısından zengin yemek öner", 
+          "Kilo verme için nasıl beslenmeliyim?",
+          "Spor öncesi ne yemeliyim?"
+        ]
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
       {/* Header */}
-      <View className="flex-row justify-between items-center px-6 pt-15 pb-4 border-b border-gray-100">
+      <View className="flex-row justify-between items-center px-6 pt-4 pb-4 border-b border-gray-100">
         <TouchableOpacity onPress={() => navigation.goBack()} className="w-11 h-11 border border-gray-200 rounded-md items-center justify-center">
           <Ionicons name="chevron-back" size={24} color="#72777A" />
         </TouchableOpacity>
         
         <View className="flex-row items-center gap-3">
-          <View className="w-11 h-11 bg-blue-50 rounded-md items-center justify-center">
-            <View className="w-6 h-6 bg-blue-500 rounded-sm"></View>
+          <View className="w-11 h-11 bg-purple-50 rounded-md items-center justify-center">
+            <Ionicons name="nutrition" size={20} color="#8A47EB" />
           </View>
           <View>
             <Text className="font-bold text-sm text-gray-900">GainAI</Text>
             <View className="flex-row items-center mt-0.5">
               <View className="w-2 h-2 bg-green-400 rounded-full mr-1"></View>
-              <Text className="text-xs text-gray-500">sEMTTe</Text>
+              <Text className="text-xs text-gray-500">Online</Text>
             </View>
           </View>
         </View>
         
-        <TouchableOpacity className="w-11 h-11 border border-gray-200 rounded-md items-center justify-center">
-          <Ionicons name="ellipsis-horizontal" size={24} color="#72777A" />
+        <TouchableOpacity 
+          className="w-11 h-11 border border-gray-200 rounded-md items-center justify-center"
+          onPress={clearChat}
+        >
+          <Ionicons name="refresh" size={20} color="#72777A" />
         </TouchableOpacity>
       </View>
       
@@ -308,28 +339,29 @@ const RecipeAssistantApp = () => {
         </ScrollView>
         
         {/* Input Container */}
-        <View className="bg-white py-8 px-6 border-t border-gray-100">
+        <View className="bg-white py-4 px-6 border-t border-gray-100">
           <View className="flex-row items-center">
-            <View className="flex-1 flex-row items-center border border-gray-400 rounded-full px-5 py-2.5">
+            <View className="flex-1 flex-row items-center border border-gray-300 rounded-full px-5 py-3">
               <TextInput
-                className="flex-1 text-base text-gray-800 mb-3"
+                className="flex-1 text-base text-gray-800"
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Mesaj yaz..."
+                placeholder="Beslenme hakkında sorun..."
                 placeholderTextColor="#72777A"
                 multiline
                 maxLength={1000}
+                onSubmitEditing={() => sendMessage()}
+                returnKeyType="send"
               />
-              <TouchableOpacity>
-                <Ionicons name="mic-outline" size={24} color="#72777A" />
-              </TouchableOpacity>
             </View>
             <TouchableOpacity
               onPress={() => sendMessage()}
               disabled={inputText.trim() === '' || isLoading}
-              className="bg-gray-800 w-11 h-11 rounded-md items-center justify-center ml-4"
+              className={`w-11 h-11 rounded-full items-center justify-center ml-3 ${
+                inputText.trim() === '' || isLoading ? 'bg-gray-300' : 'bg-[#8A47EB]'
+              }`}
             >
-              <Ionicons name="send-outline" size={20} color="white" />
+              <Ionicons name="send" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -338,4 +370,4 @@ const RecipeAssistantApp = () => {
   );
 };
 
-export default RecipeAssistantApp;
+export default ChatScreen;

@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useUser } from '@clerk/clerk-expo';
 
 // Configure the base URL for your backend
-const API_BASE_URL = 'http://localhost:5000'; // Change this to your backend URL
+const API_BASE_URL = 'https://mipvvnn83i.us-east-1.awsapprunner.com';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ImageBackground,
   View,
@@ -8,195 +8,281 @@ import {
   FlatList,
   LayoutAnimation,
   UIManager,
-  Platform
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
-import Checkbox from 'expo-checkbox'; // <== bunu eklediğinden emin ol
+import Checkbox from 'expo-checkbox';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useUser } from '@clerk/clerk-expo';
+import apiService, { MealPlan } from '../services/api';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const mockMealPlans = [
-  {
-    id: '1',
-    name: 'Yüksek Protein Planı',
-    kcal: 2200,
-    createdAt: new Date('2025-05-13'),
-    startTime: '07:30',
-    mealsCount: 4,
-    macros: { protein: 45, fat: 25, carbs: 30 },
-    groceryList: ['Tavuk Göğsü', 'Yumurta', 'Lor Peyniri', 'Kefir', 'Badem', 'Ton Balığı']
-  },
-  {
-    id: '2',
-    name: 'Vegan Öğle Planı',
-    kcal: 1500,
-    createdAt: new Date('2025-05-14'),
-    startTime: '12:00',
-    mealsCount: 3,
-    macros: { protein: 20, fat: 30, carbs: 50 },
-    groceryList: ['Nohut', 'Avokado', 'Kinoa', 'Hurma', 'Brokoli', 'Zeytinyağı']
-  },
-  {
-    id: '3',
-    name: 'Karma Plan',
-    kcal: 1800,
-    createdAt: new Date('2025-05-15'),
-    startTime: '09:00',
-    mealsCount: 10,
-    macros: { protein: 35, fat: 20, carbs: 45 },
-    groceryList: [
-      'Tavuk Göğsü', 'Zeytinyağı', 'Patates', 'Peynir', 'Yulaf', 'Avokado',
-      'Meyve Suyu', 'Brokoli', 'Salatalık', 'Badem'
-    ]
-  }
-];
+const Grocery = () => {
+  const { user } = useUser();
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
 
-const GroceryList = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState<'latest' | 'kcal' | 'protein'>('latest');
-  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
-  const [checkedItems, setCheckedItems] = useState<{ [key: string]: Set<string> }>({});
+  useEffect(() => {
+    loadGroceryList();
+  }, [user]);
 
-  const filteredPlans = mockMealPlans
-    .filter(plan => plan.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => {
-      switch (sortOption) {
-        case 'latest':
-          return b.createdAt.getTime() - a.createdAt.getTime();
-        case 'kcal':
-          return b.kcal - a.kcal;
-        case 'protein':
-          return b.macros.protein - a.macros.protein;
-        default:
-          return 0;
-      }
-    });
-
-  const toggleExpand = (id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedPlanId(prev => (prev === id ? null : id));
+  const loadGroceryList = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      const data = await apiService.getMealPlan(user.id);
+      setMealPlan(data);
+    } catch (error) {
+      console.error('Failed to load grocery list:', error);
+      Alert.alert('Error', 'Failed to load your grocery list. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleCheck = (planId: string, item: string) => {
+  const toggleItemCheck = (itemId: string) => {
     setCheckedItems(prev => {
-      const currentSet = new Set(prev[planId] || []);
-      if (currentSet.has(item)) {
-        currentSet.delete(item);
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
       } else {
-        currentSet.add(item);
+        newSet.add(itemId);
       }
-      return { ...prev, [planId]: currentSet };
+      return newSet;
     });
   };
 
-  const addToList = (planName: string) => {
-    console.log(`"${planName}" listene eklendi.`);
+  const clearAllChecked = () => {
+    setCheckedItems(new Set());
   };
+
+  const getCheckedCount = () => {
+    return checkedItems.size;
+  };
+
+  const getTotalItems = () => {
+    return mealPlan?.grocery_list.length || 0;
+  };
+
+  const groupItemsByCategory = () => {
+    if (!mealPlan) return {};
+    
+    const categories: { [key: string]: any[] } = {
+      'Protein': [],
+      'Vegetables': [],
+      'Fruits': [],
+      'Grains': [],
+      'Dairy': [],
+      'Other': []
+    };
+
+    mealPlan.grocery_list.forEach(item => {
+      // Simple categorization based on item name
+      const name = item.name.toLowerCase();
+      if (name.includes('chicken') || name.includes('beef') || name.includes('fish') || 
+          name.includes('egg') || name.includes('meat') || name.includes('protein')) {
+        categories['Protein'].push(item);
+      } else if (name.includes('milk') || name.includes('cheese') || name.includes('yogurt') || 
+                 name.includes('butter') || name.includes('dairy')) {
+        categories['Dairy'].push(item);
+      } else if (name.includes('rice') || name.includes('bread') || name.includes('pasta') || 
+                 name.includes('oat') || name.includes('cereal') || name.includes('flour')) {
+        categories['Grains'].push(item);
+      } else if (name.includes('apple') || name.includes('banana') || name.includes('orange') || 
+                 name.includes('berry') || name.includes('fruit')) {
+        categories['Fruits'].push(item);
+      } else if (name.includes('spinach') || name.includes('broccoli') || name.includes('carrot') || 
+                 name.includes('tomato') || name.includes('onion') || name.includes('vegetable')) {
+        categories['Vegetables'].push(item);
+      } else {
+        categories['Other'].push(item);
+      }
+    });
+
+    // Remove empty categories
+    return Object.fromEntries(
+      Object.entries(categories).filter(([_, items]) => items.length > 0)
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <ActivityIndicator size="large" color="#8A47EB" />
+        <Text className="mt-4 text-gray-600">Loading your grocery list...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!mealPlan || mealPlan.grocery_list.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="px-4 py-6">
+          <Text className="text-2xl font-bold text-gray-900 mb-2">Grocery List</Text>
+          <Text className="text-gray-500">Your shopping list will appear here</Text>
+        </View>
+        
+        <View className="flex-1 justify-center items-center px-6">
+          <MaterialCommunityIcons name="cart-outline" size={80} color="#9ca3af" />
+          <Text className="text-xl font-semibold text-gray-700 mt-4 mb-2">No Grocery List Yet</Text>
+          <Text className="text-gray-500 text-center">
+            Create a meal plan to automatically generate your shopping list with all the ingredients you need.
+          </Text>
+          <TouchableOpacity 
+            className="bg-[#8A47EB] px-6 py-3 rounded-lg mt-6"
+            onPress={() => {/* Navigate to meal plan creation */}}
+          >
+            <Text className="text-white font-semibold">Create Meal Plan</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const groupedItems = groupItemsByCategory();
 
   return (
-    <ImageBackground
-      source={require('../assets/apple.png')}
-      resizeMode="cover"
-      className="flex-1"
-    >
-      <View className="p-6 flex-1 bg-black/40 backdrop-blur-lg">
-        <Text className="text-white text-4xl font-bold mb-5 mt-14">
-          Meal Plans Overview
-        </Text>
-
-        <TextInput
-          className="bg-white/80 text-gray-800 rounded-full p-3 mb-4 text-base shadow-md"
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          placeholder="Plan ismi ara"
-          placeholderTextColor="#AAA"
-        />
-
-        <View className="flex-row mb-6 justify-between">
-          {['latest', 'kcal', 'protein'].map(option => (
-            <TouchableOpacity
-              key={option}
-              className={`px-4 py-2 rounded-full ${sortOption === option ? 'bg-purple-600' : 'bg-white/60'}`}
-              onPress={() => setSortOption(option as any)}
-            >
-              <Text className={`text-sm font-semibold ${sortOption === option ? 'text-white' : 'text-gray-800'}`}>
-                Sort by {option.charAt(0).toUpperCase() + option.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+    <SafeAreaView className="flex-1 bg-gray-50">
+      {/* Header */}
+      <View className="px-4 py-6 bg-white border-b border-gray-100">
+        <View className="flex-row justify-between items-center">
+          <View>
+            <Text className="text-2xl font-bold text-gray-900">Grocery List</Text>
+            <Text className="text-gray-500">
+              {getCheckedCount()} of {getTotalItems()} items collected
+            </Text>
+          </View>
+          <TouchableOpacity 
+            className="bg-gray-100 px-3 py-2 rounded-lg"
+            onPress={clearAllChecked}
+          >
+            <Text className="text-gray-700 text-sm font-medium">Clear All</Text>
+          </TouchableOpacity>
         </View>
-
-        <FlatList
-          data={filteredPlans}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const isExpanded = item.id === expandedPlanId;
-            const checkedSet = checkedItems[item.id] || new Set();
-
-            return (
-              <View className="bg-white/80 rounded-2xl mb-6 p-6 shadow-lg">
-                <View className="flex-row justify-between">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-2xl font-bold text-gray-800 mb-2">{item.name}</Text>
-                    <Text className="text-base text-gray-600 mb-1">Kcal: {item.kcal}</Text>
-                    <Text className="text-sm text-gray-500 mb-2">Oluşturulma: {item.createdAt.toLocaleDateString()}</Text>
-
-                    {isExpanded && (
-                      <View className="space-y-1">
-                        <Text className="text-sm text-gray-700">Başlangıç Saati: {item.startTime}</Text>
-                        <Text className="text-sm text-gray-700">Öğün Sayısı: {item.mealsCount}</Text>
-                        <Text className="text-sm text-gray-700">Protein: {item.macros.protein}%</Text>
-                        <Text className="text-sm text-gray-700">Yağ: {item.macros.fat}%</Text>
-                        <Text className="text-sm text-gray-700">Karbonhidrat: {item.macros.carbs}%</Text>
-
-                        <TouchableOpacity
-                          className="mt-3 bg-green-600 rounded-full px-4 py-2 self-start"
-                          onPress={() => addToList(item.name)}
-                        >
-                          <Text className="text-white font-semibold text-sm">Listeye Ekle</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    <TouchableOpacity
-                      className="mt-4 bg-purple-500 rounded-full px-4 py-2 self-start"
-                      onPress={() => toggleExpand(item.id)}
-                    >
-                      <Text className="text-white font-semibold text-sm">
-                        {isExpanded ? 'Kapat' : 'View'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {isExpanded && (
-                    <View className="w-36 pl-2 border-l border-gray-300">
-                      <Text className="text-gray-800 font-semibold mb-2">Alışveriş:</Text>
-                      {item.groceryList.map((grocery, index) => {
-                        const isChecked = checkedSet.has(grocery);
-                        return (
-                          <View key={index} className="flex-row items-center mb-1">
-                            <Checkbox
-                              value={isChecked}
-                              onValueChange={() => toggleCheck(item.id, grocery)}
-                              color={isChecked ? '#4F46E5' : undefined}
-                            />
-                            <Text className={`ml-2 text-sm ${isChecked ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                              {grocery}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              </View>
-            );
-          }}
-        />
+        
+        {/* Progress Bar */}
+        <View className="mt-4">
+          <View className="h-2 bg-gray-200 rounded-full">
+            <View 
+              className="h-2 bg-[#8A47EB] rounded-full"
+              style={{ width: `${getTotalItems() > 0 ? (getCheckedCount() / getTotalItems()) * 100 : 0}%` }}
+            />
+          </View>
+        </View>
       </View>
-    </ImageBackground>
+
+      <ScrollView className="flex-1 px-4 py-4">
+        {Object.entries(groupedItems).map(([category, items]) => (
+          <View key={category} className="mb-6">
+            {/* Category Header */}
+            <View className="flex-row items-center mb-3">
+              <MaterialCommunityIcons 
+                name={getCategoryIcon(category)} 
+                size={20} 
+                color="#6b7280" 
+              />
+              <Text className="text-lg font-semibold text-gray-900 ml-2">{category}</Text>
+              <Text className="text-sm text-gray-500 ml-2">({items.length})</Text>
+            </View>
+
+            {/* Category Items */}
+            <View className="bg-white rounded-xl overflow-hidden">
+              {items.map((item, index) => (
+                <GroceryItem
+                  key={item.grocery_id}
+                  item={item}
+                  isChecked={checkedItems.has(item.grocery_id)}
+                  onToggle={() => toggleItemCheck(item.grocery_id)}
+                  isLast={index === items.length - 1}
+                />
+              ))}
+            </View>
+          </View>
+        ))}
+
+        {/* Shopping Tips */}
+        <View className="bg-blue-50 p-4 rounded-xl mt-4 mb-6">
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="bulb" size={20} color="#3b82f6" />
+            <Text className="font-semibold text-blue-800 ml-2">Shopping Tips</Text>
+          </View>
+          <Text className="text-blue-600 text-sm mb-1">• Buy organic produce when possible</Text>
+          <Text className="text-blue-600 text-sm mb-1">• Check expiration dates for dairy products</Text>
+          <Text className="text-blue-600 text-sm">• Consider buying in bulk for non-perishables</Text>
+        </View>
+      </ScrollView>
+
+      {/* Action Buttons */}
+      <View className="px-4 py-4 bg-white border-t border-gray-100">
+        <View className="flex-row space-x-3">
+          <TouchableOpacity className="flex-1 bg-gray-100 py-3 rounded-lg items-center">
+            <View className="flex-row items-center">
+              <Ionicons name="share-outline" size={20} color="#374151" />
+              <Text className="ml-2 text-gray-700 font-medium">Share List</Text>
+            </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity className="flex-1 bg-[#8A47EB] py-3 rounded-lg items-center">
+            <View className="flex-row items-center">
+              <Ionicons name="refresh" size={20} color="white" />
+              <Text className="ml-2 text-white font-medium">Refresh List</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
-export default GroceryList;
+// Helper function to get category icons
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case 'Protein': return 'food-drumstick';
+    case 'Vegetables': return 'carrot';
+    case 'Fruits': return 'food-apple';
+    case 'Grains': return 'bread-slice';
+    case 'Dairy': return 'cow';
+    case 'Other': return 'food';
+    default: return 'food';
+  }
+};
+
+// Grocery Item Component
+const GroceryItem = ({ item, isChecked, onToggle, isLast }: any) => (
+  <TouchableOpacity 
+    className={`flex-row items-center p-4 ${!isLast ? 'border-b border-gray-100' : ''}`}
+    onPress={onToggle}
+  >
+    <TouchableOpacity 
+      className={`w-6 h-6 rounded-full border-2 mr-3 items-center justify-center ${
+        isChecked ? 'bg-[#8A47EB] border-[#8A47EB]' : 'border-gray-300'
+      }`}
+      onPress={onToggle}
+    >
+      {isChecked && <Ionicons name="checkmark" size={16} color="white" />}
+    </TouchableOpacity>
+    
+    <View className="flex-1">
+      <Text className={`font-medium ${isChecked ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+        {item.name}
+      </Text>
+      <Text className="text-sm text-gray-500">
+        {item.quantity} {item.unit}
+      </Text>
+    </View>
+    
+    <TouchableOpacity className="p-2">
+      <Ionicons name="add-circle-outline" size={20} color="#8A47EB" />
+    </TouchableOpacity>
+  </TouchableOpacity>
+);
+
+export default Grocery;
