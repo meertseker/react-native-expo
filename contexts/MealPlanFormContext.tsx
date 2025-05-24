@@ -1,105 +1,66 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { useUser } from '@clerk/clerk-expo';
 import apiService, { UserFormData } from '../services/api';
 
 // Types for form data
-export interface FormData {
-  // User basic info
+interface FormData {
   name: string;
-  age?: number;
-  gender?: string;
-  
-  // Physical data
-  currentWeight: string;
-  targetWeight: string;
+  age: string;
+  weight: string;
   height: string;
-  activityLevel: 'low' | 'medium' | 'high';
-  
-  // Allergies
+  gender: string;
+  activityLevel: string;
   allergies: string[];
-  
-  // Plan type
-  planType: 'balanced' | 'lowCarb' | 'highProtein';
+  dietaryPreference: string;
+  mealFrequency: string;
+  cookingSkill: string;
+  mealTiming: {
+    breakfast: string;
+    lunch: string;
+    dinner: string;
+    snacks: string[];
+  };
 }
 
-// Form actions
-type FormAction =
-  | { type: 'SET_USER_INFO'; payload: { name: string; age?: number; gender?: string } }
-  | { type: 'SET_PHYSICAL_DATA'; payload: { currentWeight: string; targetWeight: string; height: string; activityLevel: 'low' | 'medium' | 'high' } }
-  | { type: 'SET_ALLERGIES'; payload: string[] }
-  | { type: 'SET_PLAN_TYPE'; payload: 'balanced' | 'lowCarb' | 'highProtein' }
-  | { type: 'RESET_FORM' };
-
-// Initial state
-const initialState: FormData = {
-  name: '',
-  age: undefined,
-  gender: undefined,
-  currentWeight: '',
-  targetWeight: '',
-  height: '',
-  activityLevel: 'medium',
-  allergies: [],
-  planType: 'balanced',
-};
-
-// Reducer
-function formReducer(state: FormData, action: FormAction): FormData {
-  switch (action.type) {
-    case 'SET_USER_INFO':
-      return { ...state, ...action.payload };
-    case 'SET_PHYSICAL_DATA':
-      return { ...state, ...action.payload };
-    case 'SET_ALLERGIES':
-      return { ...state, allergies: action.payload };
-    case 'SET_PLAN_TYPE':
-      return { ...state, planType: action.payload };
-    case 'RESET_FORM':
-      return initialState;
-    default:
-      return state;
-  }
-}
-
-// Context type
 interface MealPlanFormContextType {
   formData: FormData;
-  setUserInfo: (data: { name: string; age?: number; gender?: string }) => void;
-  setPhysicalData: (data: { currentWeight: string; targetWeight: string; height: string; activityLevel: 'low' | 'medium' | 'high' }) => void;
-  setAllergies: (allergies: string[]) => void;
-  setPlanType: (planType: 'balanced' | 'lowCarb' | 'highProtein') => void;
-  submitForm: () => Promise<boolean>;
+  updateFormData: (newData: Partial<FormData>) => void;
   resetForm: () => void;
-  isSubmitting: boolean;
 }
+
+const defaultFormData: FormData = {
+  name: '',
+  age: '',
+  weight: '',
+  height: '',
+  gender: '',
+  activityLevel: '',
+  allergies: [],
+  dietaryPreference: 'none',
+  mealFrequency: '3',
+  cookingSkill: 'intermediate',
+  mealTiming: {
+    breakfast: '08:00',
+    lunch: '13:00',
+    dinner: '19:00',
+    snacks: [],
+  },
+};
 
 // Create context
 const MealPlanFormContext = createContext<MealPlanFormContextType | undefined>(undefined);
 
 // Provider component
-export function MealPlanFormProvider({ children }: { children: ReactNode }) {
-  const [formData, dispatch] = useReducer(formReducer, initialState);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+export function MealPlanFormProvider({ children }: { children: React.ReactNode }) {
+  const [formData, setFormData] = useState<FormData>(defaultFormData);
   const { user } = useUser();
 
-  const setUserInfo = (data: { name: string; age?: number; gender?: string }) => {
-    dispatch({ type: 'SET_USER_INFO', payload: data });
-  };
-
-  const setPhysicalData = (data: { currentWeight: string; targetWeight: string; height: string; activityLevel: 'low' | 'medium' | 'high' }) => {
-    dispatch({ type: 'SET_PHYSICAL_DATA', payload: data });
-  };
-
-  const setAllergies = (allergies: string[]) => {
-    dispatch({ type: 'SET_ALLERGIES', payload: allergies });
-  };
-
-  const setPlanType = (planType: 'balanced' | 'lowCarb' | 'highProtein') => {
-    dispatch({ type: 'SET_PLAN_TYPE', payload: planType });
+  const updateFormData = (newData: Partial<FormData>) => {
+    setFormData(prev => ({ ...prev, ...newData }));
   };
 
   const resetForm = () => {
-    dispatch({ type: 'RESET_FORM' });
+    setFormData(defaultFormData);
   };
 
   const submitForm = async (): Promise<boolean> => {
@@ -109,21 +70,12 @@ export function MealPlanFormProvider({ children }: { children: ReactNode }) {
     }
 
     // Validate required fields
-    if (!formData.currentWeight || !formData.targetWeight || !formData.height) {
+    if (!formData.weight || !formData.height) {
       console.error('Missing required physical data');
       return false;
     }
 
     try {
-      setIsSubmitting(true);
-
-      // Convert activity level to backend format
-      const activityFrequencyMap = {
-        low: 'sedentary',
-        medium: 'moderate',
-        high: 'active'
-      };
-
       // Prepare data for backend
       const backendData: UserFormData = {
         user: {
@@ -133,10 +85,8 @@ export function MealPlanFormProvider({ children }: { children: ReactNode }) {
           clerk_user_id: user.id,
         },
         form: {
-          current_weight: parseFloat(formData.currentWeight),
-          target_weight: parseFloat(formData.targetWeight),
+          current_weight: parseFloat(formData.weight),
           height: parseFloat(formData.height),
-          activity_frequency: activityFrequencyMap[formData.activityLevel],
         },
         allergies: formData.allergies,
       };
@@ -149,24 +99,11 @@ export function MealPlanFormProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error submitting form:', error);
       return false;
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   return (
-    <MealPlanFormContext.Provider
-      value={{
-        formData,
-        setUserInfo,
-        setPhysicalData,
-        setAllergies,
-        setPlanType,
-        submitForm,
-        resetForm,
-        isSubmitting,
-      }}
-    >
+    <MealPlanFormContext.Provider value={{ formData, updateFormData, resetForm }}>
       {children}
     </MealPlanFormContext.Provider>
   );

@@ -16,6 +16,12 @@ import LoginScreen from './LoginScreen';
 import MealScanner from './screens/MealScanner';
 import ManualMealLog from './screens/ManualMealLog';
 import { MealPlanFormProvider } from './contexts/MealPlanFormContext';
+import { MealPlanProvider } from './contexts/MealPlanContext';
+import DietaryPreferences from './components/MealPlanForm/DietaryPreferences';
+import MealFrequency from './components/MealPlanForm/MealFrequency';
+import CookingSkills from './components/MealPlanForm/CookingSkills';
+import MealTiming from './components/MealPlanForm/MealTiming';
+import ReviewPlan from './components/MealPlanForm/ReviewPlan';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -34,6 +40,11 @@ export type RootStackParamList = {
   MealScanner: undefined;
   Progress: undefined;
   ManualMealLog: undefined;
+  DietaryPreferences: undefined;
+  MealFrequency: undefined;
+  CookingSkills: undefined;
+  MealTiming: undefined;
+  ReviewPlan: undefined;
 };
 
 const Stack = createStackNavigator();
@@ -63,28 +74,35 @@ function MainApp() {
 
   return (
     <MealPlanFormProvider>
-      <NavigationContainer>
-        <Stack.Navigator>
-          <Stack.Screen 
-            name="MainTabs" 
-            component={Tabs} 
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen 
-            name="Chat" 
-            component={Chat}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="FirstMealForm" component={FirstMealForm} options={{ headerShown: false }} />
-          <Stack.Screen name="UserInfo" component={UserInfoScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AllergySelection" component={AllergySelectionScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="FinalMealForm" component={FinalMealForm} options={{ headerShown: false }} />
-          <Stack.Screen name="UserMeals" component={MealPlansScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="MealPlanDetails" component={MealPlanDetails} options={{ headerShown: false }} />
-          <Stack.Screen name="MealScanner" component={MealScanner} options={{ headerShown: false }} />
-          <Stack.Screen name="ManualMealLog" component={ManualMealLog} options={{ headerShown: false }} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <MealPlanProvider>
+        <NavigationContainer>
+          <Stack.Navigator>
+            <Stack.Screen 
+              name="MainTabs" 
+              component={Tabs} 
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="Chat" 
+              component={Chat}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="FirstMealForm" component={FirstMealForm} options={{ headerShown: false }} />
+            <Stack.Screen name="UserInfo" component={UserInfoScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="AllergySelection" component={AllergySelectionScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="DietaryPreferences" component={DietaryPreferences} options={{ headerShown: false }} />
+            <Stack.Screen name="MealFrequency" component={MealFrequency} options={{ headerShown: false }} />
+            <Stack.Screen name="CookingSkills" component={CookingSkills} options={{ headerShown: false }} />
+            <Stack.Screen name="MealTiming" component={MealTiming} options={{ headerShown: false }} />
+            <Stack.Screen name="ReviewPlan" component={ReviewPlan} options={{ headerShown: false }} />
+            <Stack.Screen name="FinalMealForm" component={FinalMealForm} options={{ headerShown: false }} />
+            <Stack.Screen name="UserMeals" component={MealPlansScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="MealPlanDetails" component={MealPlanDetails} options={{ headerShown: false }} />
+            <Stack.Screen name="MealScanner" component={MealScanner} options={{ headerShown: false }} />
+            <Stack.Screen name="ManualMealLog" component={ManualMealLog} options={{ headerShown: false }} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </MealPlanProvider>
     </MealPlanFormProvider>
   );
 }

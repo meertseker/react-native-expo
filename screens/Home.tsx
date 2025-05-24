@@ -1,42 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
-import apiService, { MealPlan } from '../services/api';
+import apiService from '../services/api';
+import { useMealPlan } from '../contexts/MealPlanContext';
 
 const HomeScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useUser();
-  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [todaysCalories, setTodaysCalories] = useState(0);
+  const { mealPlan, loading } = useMealPlan();
   const [calorieGoal] = useState(2100); // This could be fetched from user data
 
-  useEffect(() => {
-    loadMealPlan();
-  }, [user]);
-
-  const loadMealPlan = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setLoading(true);
-      const data = await apiService.getMealPlan(user.id);
-      setMealPlan(data);
-      
-      // Calculate today's calories
-      const today = new Date().getDay() || 7;
-      const calories = apiService.calculateDailyCalories(data, today);
-      setTodaysCalories(calories);
-    } catch (error) {
-      console.error('Failed to load meal plan:', error);
-      // Don't show error if user just doesn't have a meal plan yet
-    } finally {
-      setLoading(false);
-    }
+  const getTodaysCalories = () => {
+    if (!mealPlan) return 0;
+    const today = new Date().getDay() || 7;
+    return apiService.calculateDailyCalories(mealPlan, today);
   };
 
   const handleCreateNewPlan = () => {
@@ -97,7 +78,7 @@ const HomeScreen = () => {
           <StatCard 
             icon="fire" 
             title="Calories" 
-            value={`${todaysCalories}/${calorieGoal}`} 
+            value={`${getTodaysCalories()}/${calorieGoal}`} 
             color="#f59e0b" 
           />
           <StatCard 

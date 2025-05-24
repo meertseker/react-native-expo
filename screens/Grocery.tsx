@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ImageBackground,
   View,
@@ -17,7 +17,8 @@ import {
 import Checkbox from 'expo-checkbox';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
-import apiService, { MealPlan } from '../services/api';
+import apiService from '../services/api';
+import { useMealPlan } from '../contexts/MealPlanContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -25,28 +26,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const Grocery = () => {
   const { user } = useUser();
-  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { mealPlan, loading } = useMealPlan();
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    loadGroceryList();
-  }, [user]);
-
-  const loadGroceryList = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setLoading(true);
-      const data = await apiService.getMealPlan(user.id);
-      setMealPlan(data);
-    } catch (error) {
-      console.error('Failed to load grocery list:', error);
-      Alert.alert('Error', 'Failed to load your grocery list. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleItemCheck = (itemId: string) => {
     setCheckedItems(prev => {
@@ -236,7 +217,7 @@ const Grocery = () => {
             
             <TouchableOpacity 
               className="flex-1 bg-[#8A47EB] py-3 rounded-lg items-center"
-              onPress={loadGroceryList}
+              onPress={() => {/* Implement refresh logic */}}
             >
               <View className="flex-row items-center">
                 <Ionicons name="refresh" size={20} color="white" />

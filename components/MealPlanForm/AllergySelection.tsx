@@ -30,15 +30,10 @@ const allergyOptions = [
 
 const AllergySelectionScreen: React.FC = () => {
   const navigation = useNavigation<AllergySelectionScreenProps>();
-  const { formData, setAllergies } = useMealPlanForm();
+  const { formData, updateFormData } = useMealPlanForm();
   
   const [selectedAllergies, setSelectedAllergies] = useState<Set<string>>(() => {
-    const initialState = new Set<string>();
-    formData.allergies.forEach(allergy => {
-      const option = allergyOptions.find(opt => opt.name === allergy);
-      if (option) initialState.add(option.key);
-    });
-    return initialState;
+    return new Set(formData.allergies);
   });
 
   const toggleAllergy = (key: string) => {
@@ -54,13 +49,13 @@ const AllergySelectionScreen: React.FC = () => {
   };
 
   const handleNext = () => {
-    const selectedAllergyNames = Array.from(selectedAllergies).map(key => {
-      const option = allergyOptions.find(opt => opt.key === key);
-      return option?.name || '';
-    }).filter(Boolean);
-    
-    setAllergies(selectedAllergyNames);
-    navigation.navigate('UserInfo');
+    updateFormData({
+      allergies: Array.from(selectedAllergies).map(key => {
+        const option = allergyOptions.find(opt => opt.key === key);
+        return option?.name || '';
+      }).filter(Boolean),
+    });
+    navigation.navigate('DietaryPreferences');
   };
 
   return (

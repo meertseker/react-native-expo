@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,33 +6,15 @@ import { RootStackParamList } from '../App';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import apiService, { MealPlan } from '../services/api';
+import { useMealPlan } from '../contexts/MealPlanContext';
 
 type MealPlanDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MealPlanDetails'>;
 
 const MealPlanDetails: React.FC = () => {
   const navigation = useNavigation<MealPlanDetailsNavigationProp>();
   const { user } = useUser();
+  const { mealPlan, loading } = useMealPlan();
   const [activeTab, setActiveTab] = useState('overview');
-  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadMealPlan();
-  }, [user]);
-
-  const loadMealPlan = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setLoading(true);
-      const data = await apiService.getMealPlan(user.id);
-      setMealPlan(data);
-    } catch (error) {
-      console.error('Failed to load meal plan details:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const calculateProgress = () => {
     if (!mealPlan) return 0;
@@ -201,7 +183,7 @@ const OverviewTab = ({ mealPlan }: { mealPlan: MealPlan }) => (
       />
       <StatCard 
         icon="food" 
-        value={mealPlan.meal_plan.days.reduce((total, day) => total + day.meals.length, 0).toString()} 
+        value={mealPlan.meal_plan.days.reduce((total: number, day) => total + day.meals.length, 0).toString()} 
         label="Total Meals" 
       />
       <StatCard 
@@ -243,40 +225,34 @@ const ScheduleTab = ({ mealPlan }: { mealPlan: MealPlan }) => {
   return (
     <View>
       {mealPlan.meal_plan.days.map((dayPlan) => (
-        <View key={dayPlan.day} className="mb-4 bg-gray-50 rounded-xl p-3">
-          <Text className="font-bold text-gray-900 mb-2">
-            Day {dayPlan.day} - {dayNames[dayPlan.day === 7 ? 0 : dayPlan.day]}
-          </Text>
-          {dayPlan.meals.map((meal, index) => (
-            <MealCard key={meal.meal_id} meal={meal} />
+        <View key={dayPlan.day} className="mb-6">
+          <Text className="text-lg font-bold text-gray-900 mb-3">{dayNames[dayPlan.day - 1]}</Text>
+          {dayPlan.meals.map((meal, index: number) => (
+            <View key={meal.meal_id || index} className="bg-gray-50 rounded-xl p-4 mb-3">
+              <View className="flex-row justify-between items-start mb-2">
+                <Text className="font-medium text-gray-900">{meal.meal_name}</Text>
+                <View className="bg-purple-100 px-2 py-1 rounded">
+                  <Text className="text-purple-700 text-xs font-medium">{meal.meal_type}</Text>
+                </View>
+              </View>
+              <Text className="text-gray-600 text-sm mb-2">Ingredients:</Text>
+              {meal.ingredients.slice(0, 3).map((ingredient: any, index: number) => (
+                <Text key={ingredient.ingredient_id} className="text-gray-500 text-xs">
+                  • {ingredient.ingredient_name} ({ingredient.quantity} {ingredient.unit})
+                </Text>
+              ))}
+              {meal.ingredients.length > 3 && (
+                <Text className="text-gray-400 text-xs mt-1">
+                  +{meal.ingredients.length - 3} more ingredients
+                </Text>
+              )}
+            </View>
           ))}
         </View>
       ))}
     </View>
   );
 };
-
-const MealCard = ({ meal }: { meal: any }) => (
-  <View className="mb-3 bg-white p-3 rounded-lg">
-    <View className="flex-row justify-between items-start mb-2">
-      <Text className="font-medium text-gray-900">{meal.meal_name}</Text>
-      <View className="bg-purple-100 px-2 py-1 rounded">
-        <Text className="text-purple-700 text-xs font-medium">{meal.meal_type}</Text>
-      </View>
-    </View>
-    <Text className="text-gray-600 text-sm mb-2">Ingredients:</Text>
-    {meal.ingredients.slice(0, 3).map((ingredient: any, index: number) => (
-      <Text key={ingredient.ingredient_id} className="text-gray-500 text-xs">
-        • {ingredient.ingredient_name} ({ingredient.quantity} {ingredient.unit})
-      </Text>
-    ))}
-    {meal.ingredients.length > 3 && (
-      <Text className="text-gray-400 text-xs mt-1">
-        +{meal.ingredients.length - 3} more ingredients
-      </Text>
-    )}
-  </View>
-);
 
 const GroceryTab = ({ groceries }: { groceries: Array<{ grocery_id: string; name: string; quantity: number; unit: string }> }) => (
   <View>

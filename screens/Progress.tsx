@@ -4,32 +4,29 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { useNavigation } from '@react-navigation/native';
-import apiService, { MealPlan, DailyNutrition } from '../services/api';
+import apiService, { DailyNutrition } from '../services/api';
+import { useMealPlan } from '../contexts/MealPlanContext';
 
 export default function Progress() {
   const { user } = useUser();
   const navigation = useNavigation();
-  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const { mealPlan, loading: mealPlanLoading } = useMealPlan();
   const [dailyNutrition, setDailyNutrition] = useState<DailyNutrition | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    loadNutritionData();
   }, [user]);
 
-  const loadData = async () => {
+  const loadNutritionData = async () => {
     if (!user?.id) return;
     
     try {
       setLoading(true);
-      const [mealPlanData, nutritionData] = await Promise.all([
-        apiService.getMealPlan(user.id),
-        apiService.getDailyNutrition(user.id)
-      ]);
-      setMealPlan(mealPlanData);
+      const nutritionData = await apiService.getDailyNutrition(user.id);
       setDailyNutrition(nutritionData);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      console.error('Failed to load nutrition data:', error);
     } finally {
       setLoading(false);
     }
@@ -39,7 +36,7 @@ export default function Progress() {
     navigation.navigate('MealScanner' as never);
   };
 
-  if (loading) {
+  if (loading || mealPlanLoading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
         <ActivityIndicator size="large" color="#3b82f6" />
@@ -75,7 +72,7 @@ export default function Progress() {
           <View className="bg-white rounded-2xl p-4 shadow-sm mb-6">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-lg font-semibold text-gray-900">Today's Progress</Text>
-              <TouchableOpacity onPress={loadData}>
+              <TouchableOpacity onPress={loadNutritionData}>
                 <Ionicons name="refresh" size={20} color="#2563eb" />
               </TouchableOpacity>
             </View>
