@@ -1,24 +1,96 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+import { useMealPlanForm } from '../../contexts/MealPlanFormContext';
 
 type FinalScreenProps = NativeStackNavigationProp<RootStackParamList, 'Final'>;
 
 const FinalScreen: React.FC = () => {
   const navigation = useNavigation<FinalScreenProps>();
+  const { formData, setPlanType, submitForm, isSubmitting } = useMealPlanForm();
   
-  // Bu bölümde önceki ekranlardan toplanan verileri kullanarak bir özet gösterebilirsiniz
-  // Ya da meal plan türlerini seçtirip son bir ayarlama yaptırabilirsiniz
-  
-  const [planType, setPlanType] = useState<'balanced' | 'lowCarb' | 'highProtein'>('balanced');
+  const [planType, setPlanTypeState] = useState<'balanced' | 'lowCarb' | 'highProtein'>(formData.planType);
 
-  const handleFinish = () => {
-    // Burada tüm süreci tamamlayıp ana ekrana dönebilir veya 
-    // oluşturulan meal plan'ı gösterebilirsiniz
-    console.log('Selected Plan Type:', planType);
-    navigation.navigate('Home');
+  const handlePlanTypeChange = (type: 'balanced' | 'lowCarb' | 'highProtein') => {
+    setPlanTypeState(type);
+    setPlanType(type);
+  };
+
+  const handleFinish = async () => {
+    try {
+      const success = await submitForm();
+      if (success) {
+        Alert.alert(
+          'Success!',
+          'Your meal plan has been created successfully! You can now view it on the home screen.',
+          [
+            {
+              text: 'View Plan',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' }],
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          'Failed to create your meal plan. Please check your information and try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error creating meal plan:', error);
+      Alert.alert(
+        'Error',
+        'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const getPlanTypeDescription = (type: string) => {
+    switch (type) {
+      case 'balanced':
+        return 'Karbonhidrat, protein ve yağ dengeli olarak dağıtılır. Genel sağlık için idealdir.';
+      case 'lowCarb':
+        return 'Karbonhidrat miktarı sınırlı tutulur, protein ve sağlıklı yağlar arttırılır. Kilo vermek için etkilidir.';
+      case 'highProtein':
+        return 'Protein ağırlıklı beslenme planı. Kas gelişimi ve spor performansı için uygundur.';
+      default:
+        return '';
+    }
+  };
+
+  const getPlanTypeName = (type: string) => {
+    switch (type) {
+      case 'balanced':
+        return 'Dengeli Beslenme';
+      case 'lowCarb':
+        return 'Düşük Karbonhidrat';
+      case 'highProtein':
+        return 'Yüksek Proteinli';
+      default:
+        return '';
+    }
+  };
+
+  const getActivityLevelText = (level: string) => {
+    switch (level) {
+      case 'low':
+        return 'Düşük Aktivite';
+      case 'medium':
+        return 'Orta Aktivite';
+      case 'high':
+        return 'Yüksek Aktivite';
+      default:
+        return level;
+    }
   };
 
   return (
@@ -54,7 +126,7 @@ const FinalScreen: React.FC = () => {
         {/* Plan seçenekleri */}
         <TouchableOpacity 
           className={`border rounded-lg p-4 mb-3 ${planType === 'balanced' ? 'border-[#8A47EB] bg-[#F6F0FF]' : 'border-gray-300'}`}
-          onPress={() => setPlanType('balanced')}
+          onPress={() => handlePlanTypeChange('balanced')}
         >
           <Text className={`font-medium text-base ${planType === 'balanced' ? 'text-[#8A47EB]' : 'text-black'}`}>
             Dengeli Beslenme
@@ -66,7 +138,7 @@ const FinalScreen: React.FC = () => {
         
         <TouchableOpacity 
           className={`border rounded-lg p-4 mb-3 ${planType === 'lowCarb' ? 'border-[#8A47EB] bg-[#F6F0FF]' : 'border-gray-300'}`}
-          onPress={() => setPlanType('lowCarb')}
+          onPress={() => handlePlanTypeChange('lowCarb')}
         >
           <Text className={`font-medium text-base ${planType === 'lowCarb' ? 'text-[#8A47EB]' : 'text-black'}`}>
             Düşük Karbonhidrat
@@ -78,7 +150,7 @@ const FinalScreen: React.FC = () => {
         
         <TouchableOpacity 
           className={`border rounded-lg p-4 mb-3 ${planType === 'highProtein' ? 'border-[#8A47EB] bg-[#F6F0FF]' : 'border-gray-300'}`}
-          onPress={() => setPlanType('highProtein')}
+          onPress={() => handlePlanTypeChange('highProtein')}
         >
           <Text className={`font-medium text-base ${planType === 'highProtein' ? 'text-[#8A47EB]' : 'text-black'}`}>
             Yüksek Proteinli
@@ -88,13 +160,57 @@ const FinalScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
         
-        {/* Özet Bilgiler - Buraya kullanıcının önceki ekranlarda girdiği bilgilerin özeti konulabilir */}
-        <View className="bg-gray-50 p-4 rounded-lg mt-4 mb-8">
-          <Text className="font-medium mb-2">Beslenme Planı Bilgileri</Text>
-          <Text className="text-xs text-gray-600 mb-1">• Seçilen alerjiler dikkate alınacak</Text>
-          <Text className="text-xs text-gray-600 mb-1">• Hedef kilonuz ve süreniz doğrultusunda günlük kalori miktarı hesaplanacak</Text>
-          <Text className="text-xs text-gray-600 mb-1">• Aktivite seviyenize göre besin dağılımı özelleştirilecek</Text>
-          <Text className="text-xs text-gray-600">• 7 günlük değiştirilebilir beslenme planı oluşturulacak</Text>
+        {/* Form Özeti */}
+        <View className="bg-gray-50 p-4 rounded-lg mt-4 mb-4">
+          <Text className="font-medium mb-3 text-base">Plan Özeti</Text>
+          
+          {formData.currentWeight && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-xs text-gray-600">Mevcut Kilo:</Text>
+              <Text className="text-xs font-medium">{formData.currentWeight} kg</Text>
+            </View>
+          )}
+          
+          {formData.targetWeight && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-xs text-gray-600">Hedef Kilo:</Text>
+              <Text className="text-xs font-medium">{formData.targetWeight} kg</Text>
+            </View>
+          )}
+          
+          {formData.height && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-xs text-gray-600">Boy:</Text>
+              <Text className="text-xs font-medium">{formData.height} cm</Text>
+            </View>
+          )}
+          
+          <View className="flex-row justify-between mb-2">
+            <Text className="text-xs text-gray-600">Aktivite Seviyesi:</Text>
+            <Text className="text-xs font-medium">{getActivityLevelText(formData.activityLevel)}</Text>
+          </View>
+          
+          {formData.allergies.length > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-xs text-gray-600">Alerjiler:</Text>
+              <Text className="text-xs font-medium">{formData.allergies.join(', ')}</Text>
+            </View>
+          )}
+          
+          <View className="flex-row justify-between">
+            <Text className="text-xs text-gray-600">Plan Türü:</Text>
+            <Text className="text-xs font-medium">{getPlanTypeName(planType)}</Text>
+          </View>
+        </View>
+        
+        {/* Oluşturulacak İçerik */}
+        <View className="bg-blue-50 p-4 rounded-lg mt-2 mb-8">
+          <Text className="font-medium mb-2 text-blue-800">Oluşturulacak İçerikler</Text>
+          <Text className="text-xs text-blue-600 mb-1">✓ 7 günlük kişiselleştirilmiş yemek planı</Text>
+          <Text className="text-xs text-blue-600 mb-1">✓ Her öğün için detaylı malzeme listesi</Text>
+          <Text className="text-xs text-blue-600 mb-1">✓ Otomatik market alışveriş listesi</Text>
+          <Text className="text-xs text-blue-600 mb-1">✓ Günlük kalori ve makro besin değerleri</Text>
+          <Text className="text-xs text-blue-600">✓ AI destekli beslenme önerileri</Text>
         </View>
         
         {/* Ekstra boşluk */}
@@ -106,15 +222,24 @@ const FinalScreen: React.FC = () => {
         <TouchableOpacity 
           className="bg-[#F2F2F2] rounded px-4 py-2"
           onPress={() => navigation.navigate('UserInfo')}
+          disabled={isSubmitting}
         >
           <Text className="text-black text-center font-bold text-xs">Önceki</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          className="bg-[#8A47EB] rounded px-4 py-2"
+          className="bg-[#8A47EB] rounded px-6 py-2 flex-row items-center"
           onPress={handleFinish}
+          disabled={isSubmitting}
         >
-          <Text className="text-white text-center font-bold text-xs">Planı Oluştur</Text>
+          {isSubmitting ? (
+            <>
+              <ActivityIndicator size="small" color="white" className="mr-2" />
+              <Text className="text-white text-center font-bold text-xs">Oluşturuluyor...</Text>
+            </>
+          ) : (
+            <Text className="text-white text-center font-bold text-xs">Planı Oluştur</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

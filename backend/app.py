@@ -330,5 +330,86 @@ def create_meal_plan():
 def ali():
     return 'Hello, Ali!'
 
+@app.route('/getMealPlan', methods=['POST'])
+def get_meal_plan():
+    try:
+        data = request.get_json()
+        clerk_user_id = data.get('clerk_user_id')
+        
+        if not clerk_user_id:
+            return jsonify({"error": "clerk_user_id is required"}), 400
+            
+        # Find the user
+        user = User.query.filter_by(clerk_user_id=clerk_user_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        # Get the active meal plan for this user
+        meal_plan = MealPlan.query.filter_by(user_id=user.id, is_active=True).first()
+        if not meal_plan:
+            return jsonify({"error": "No active meal plan found for this user"}), 404
+        
+        # Structure the meal plan data
+        result = {
+            "meal_plan": {
+                "meal_plan_id": meal_plan.meal_plan_id,
+                "created_at": meal_plan.created_at.isoformat() if meal_plan.created_at else None,
+                "days": []
+            },
+            "grocery_list": []
+        }
+        
+        # Get all meals for this plan, organized by day
+        meals = Meal.query.filter_by(meal_plan_id=meal_plan.meal_plan_id).all()
+        days = {}
+        
+        for meal in meals:
+            if meal.day not in days:
+                days[meal.day] = []
+            
+            meal_data = {
+                "meal_id": meal.meal_id,
+                "meal_type": meal.meal_type,
+                "meal_name": meal.meal_name,
+                "ingredients": []
+            }
+            
+            # Get ingredients for this meal
+            meal_ingredients = MealIngredient.query.filter_by(meal_id=meal.meal_id).all()
+            for mi in meal_ingredients:
+                ingredient = Ingredient.query.get(mi.ingredient_id)
+                if ingredient:
+                    meal_data["ingredients"].append({
+                        "ingredient_id": ingredient.ingredient_id,
+                        "ingredient_name": ingredient.ingredient_name,
+                        "quantity": mi.quantity,
+                        "unit": mi.unit
+                    })
+            
+            days[meal.day].append(meal_data)
+        
+        # Convert days dict to list sorted by day number
+        for day_num in sorted(days.keys()):
+            result["meal_plan"]["days"].append({
+                "day": day_num,
+                "meals": days[day_num]
+            })
+        
+        # Get grocery items
+        grocery_items = GroceryItem.query.filter_by(meal_plan_id=meal_plan.meal_plan_id).all()
+        for item in grocery_items:
+            result["grocery_list"].append({
+                "grocery_id": item.grocery_item_id,
+                "name": item.name,
+                "quantity": item.quantity,
+                "unit": item.unit
+            })
+        
+        return jsonify(result), 200
+    
+    except Exception as e:
+        print(f"Error fetching meal plan: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

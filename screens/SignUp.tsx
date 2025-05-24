@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSignUp, useOAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../App';
  
 export default function CustomSignUp() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isLoaded, signUp } = useSignUp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -268,7 +271,9 @@ export default function CustomSignUp() {
       {/* Login Link */}
       <View className="mt-8 flex-row justify-center">
         <Text className="text-gray-600">Already have an account? </Text>
-        <Link href="/login" className="text-blue-500 font-medium">Sign In</Link>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text className="text-blue-500 font-medium">Sign In</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
