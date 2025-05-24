@@ -13,7 +13,7 @@ interface MealPlanContextType {
 const MealPlanContext = createContext<MealPlanContextType | undefined>(undefined);
 
 const CACHE_KEY = 'mealplan_cache';
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
 
 export function MealPlanProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -21,21 +21,23 @@ export function MealPlanProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState(0);
+  const [initialized, setInitialized] = useState(false);
 
   // Load cached data on mount
   useEffect(() => {
-    loadCachedData();
-  }, []);
-
-  // Fetch data when user changes
-  useEffect(() => {
-    if (user?.id) {
-      const shouldFetch = Date.now() - lastFetch > CACHE_EXPIRY;
-      if (shouldFetch) {
-        fetchMealPlan();
-      }
+    if (!initialized) {
+      loadCachedData().then(() => {
+        setInitialized(true);
+      });
     }
-  }, [user]);
+  }, [initialized]);
+
+  // Only fetch data when user changes and we don't have cached data
+  useEffect(() => {
+    if (user?.id && initialized && !mealPlan) {
+      fetchMealPlan();
+    }
+  }, [user, initialized]);
 
   const loadCachedData = async () => {
     try {
@@ -64,9 +66,13 @@ export function MealPlanProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const fetchMealPlan = async () => {
+  const fetchMealPlan = async (force: boolean = false) => {
     if (!user?.id) return;
     
+    // Check if we should fetch
+    const shouldFetch = force || !mealPlan || Date.now() - lastFetch > CACHE_EXPIRY;
+    if (!shouldFetch) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -88,7 +94,7 @@ export function MealPlanProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refetch = async () => {
-    await fetchMealPlan();
+    await fetchMealPlan(true);
   };
 
   return (
