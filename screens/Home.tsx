@@ -71,7 +71,7 @@ export default function HomeScreen() {
       color: '#45B7D1',
       onPress: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate('UserMeals');
+        navigation.navigate('Grocery');
       },
     },
     {
@@ -114,8 +114,14 @@ export default function HomeScreen() {
                 Day {dayNumber} of your transformation
               </Text>
             </View>
-            <TouchableOpacity className="p-2 bg-white rounded-full shadow-sm">
-              <Ionicons name="notifications-outline" size={24} color="#4b5563" />
+            <TouchableOpacity 
+              className="p-2 bg-white rounded-full shadow-sm"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate('Settings');
+              }}
+            >
+              <Ionicons name="settings-outline" size={24} color="#4b5563" />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -205,7 +211,7 @@ export default function HomeScreen() {
               
               <TouchableOpacity 
                 className="mt-3 py-2 items-center"
-                onPress={() => navigation.navigate('UserMeals')}
+                onPress={() => navigation.navigate('Grocery')}
               >
                 <Text className="text-gray-500">🛒 Missing ingredients? Add to Shopping List</Text>
               </TouchableOpacity>
