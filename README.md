@@ -313,14 +313,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🎯 Roadmap
 
-### Version 2.0 (Q2 2024)
+### Version 2.0 (Q3 2025)
 - [ ] Wearable device integration
 - [ ] Social features and challenges
 - [ ] Advanced AI meal recommendations
 - [ ] Barcode scanning
 - [ ] Restaurant menu integration
 
-### Version 3.0 (Q4 2024)
+### Version 3.0 (Q4 2025)
 - [ ] Personal trainer integration
 - [ ] Video recipes and tutorials
 - [ ] Meal prep planning
@@ -329,17 +329,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-- **Product Manager**: Leading product vision and strategy
-- **UX/UI Designer**: Creating intuitive user experiences
-- **Frontend Developers**: Building the React Native app
-- **Backend Developers**: Developing the Flask API
-- **AI/ML Engineers**: Implementing intelligent features
-- **QA Engineers**: Ensuring quality and reliability
+- **Product Manager** Leading product vision and strategy : Mert Seker
+- **UX/UI Designer** Creating intuitive user experiences : Mert Seker
+- **Frontend Developers** Building the React Native app : Mert Seker
+- **Backend Developers** Developing the Flask API : Mert Seker
+- **AI/ML Engineers** Implementing intelligent features : Mert Seker
+- **QA Engineers** Ensuring quality and reliability : Mert Seker
 
 ---
 
 <div align="center">
-  Made with ❤️ by the GainAI Team
-  
-  [Website](https://gainai.com) • [Blog](https://blog.gainai.com) • [Twitter](https://twitter.com/gainai)
 </div>
