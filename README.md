@@ -342,4 +342,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   Made with ❤️ by the GainAI Team
   
   [Website](https://gainai.com) • [Blog](https://blog.gainai.com) • [Twitter](https://twitter.com/gainai)
-</div> 
+</div>
