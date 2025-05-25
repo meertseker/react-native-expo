@@ -12,31 +12,41 @@ type MealPlansScreenNavigationProp = NativeStackNavigationProp<RootStackParamLis
 
 const MealPlansScreen: React.FC = () => {
   const navigation = useNavigation<MealPlansScreenNavigationProp>();
-  const { mealPlan, loading, refetch } = useMealPlan();
+  const { mealPlan, loading, refreshMealPlan } = useMealPlan();
+  const { user } = useUser();
 
   const handleMealPlanPress = () => {
     if (mealPlan) {
-      navigation.navigate('MealPlanDetails');
+      navigation.navigate('MealPlanDetails', { mealId: mealPlan.meal_plan.meal_plan_id });
     }
   };
 
   const handleGroceryPress = () => {
-    navigation.navigate('MainTabs');
+    if (mealPlan?.grocery_list.length) {
+      // Navigate to grocery list view when implemented
+      Alert.alert(
+        "Grocery List",
+        `You have ${mealPlan.grocery_list.length} items in your shopping list:\n\n${mealPlan.grocery_list.map(item => `• ${item.quantity} ${item.unit} ${item.name}`).join('\n')}`,
+        [{ text: "OK" }]
+      );
+    } else {
+      Alert.alert("No Grocery List", "Your grocery list is empty. Create a meal plan to generate a shopping list.");
+    }
   };
 
   const calculateProgress = () => {
-    if (!mealPlan) return 0;
+    if (!mealPlan?.meal_plan?.created_at) return 0;
     
     const createdDate = new Date(mealPlan.meal_plan.created_at);
     const today = new Date();
     const daysPassed = Math.floor((today.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
-    const totalDays = 7;
+    const totalDays = mealPlan.meal_plan.days.length;
     
     return Math.min(Math.round((daysPassed / totalDays) * 100), 100);
   };
 
   const getTimeAgo = () => {
-    if (!mealPlan) return '';
+    if (!mealPlan?.meal_plan?.created_at) return '';
     
     const createdDate = new Date(mealPlan.meal_plan.created_at);
     const today = new Date();
@@ -51,7 +61,7 @@ const MealPlansScreen: React.FC = () => {
   };
 
   const getTotalCalories = () => {
-    if (!mealPlan) return 0;
+    if (!mealPlan?.meal_plan?.days) return 0;
     
     let totalCalories = 0;
     mealPlan.meal_plan.days.forEach(day => {
@@ -79,7 +89,7 @@ const MealPlansScreen: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text className="text-2xl font-bold text-gray-900">My Meal Plans</Text>
-          <TouchableOpacity className="p-2" onPress={refetch}>
+          <TouchableOpacity className="p-2" onPress={refreshMealPlan}>
             <Ionicons name="refresh" size={24} color="#8A47EB" />
           </TouchableOpacity>
         </View>
@@ -127,7 +137,7 @@ const MealPlansScreen: React.FC = () => {
               </Text>
               <TouchableOpacity 
                 className="bg-[#8A47EB] px-6 py-3 rounded-lg mt-6"
-                onPress={() => navigation.navigate('FirstMealForm')}
+                onPress={() => navigation.navigate('QuickStartOnboarding')}
               >
                 <Text className="text-white font-semibold">Create Your First Plan</Text>
               </TouchableOpacity>
@@ -139,7 +149,7 @@ const MealPlansScreen: React.FC = () => {
         <View className="flex-row space-x-3 py-4">
           <TouchableOpacity 
             className="bg-[#8A47EB] flex-1 py-4 rounded-xl flex-row justify-center items-center"
-            onPress={() => navigation.navigate('FirstMealForm')}
+            onPress={() => navigation.navigate('QuickStartOnboarding')}
           >
             <Ionicons name="add-circle-outline" size={20} color="white" />
             <Text className="text-white font-bold text-lg ml-2">New Plan</Text>
@@ -171,6 +181,16 @@ const MealPlanCard = ({ mealPlan, progress, lastUpdated, onPress }: MealPlanCard
   const totalMeals = mealPlan.meal_plan.days.reduce((total: number, day) => total + day.meals.length, 0);
   const avgCalories = apiService.calculateDailyCalories(mealPlan, 1);
 
+  // Get a summary of today's meals
+  const todaysMeals = apiService.getTodaysMeals(mealPlan);
+  const mealTypes = todaysMeals.map(meal => meal.meal_type.toLowerCase());
+  const hasMealTypes = {
+    breakfast: mealTypes.includes('breakfast'),
+    lunch: mealTypes.includes('lunch'),
+    dinner: mealTypes.includes('dinner'),
+    snack: mealTypes.includes('snack'),
+  };
+
   return (
     <TouchableOpacity 
       className="bg-white border border-gray-200 rounded-xl mb-4 overflow-hidden shadow-sm"
@@ -180,7 +200,7 @@ const MealPlanCard = ({ mealPlan, progress, lastUpdated, onPress }: MealPlanCard
         <View className="flex-row justify-between items-start mb-3">
           <View className="flex-1">
             <Text className="text-xl font-bold text-gray-900 mb-1">AI Generated Meal Plan</Text>
-            <Text className="text-gray-500 text-sm">7-day personalized nutrition plan</Text>
+            <Text className="text-gray-500 text-sm">{mealPlan.meal_plan.days.length}-day personalized nutrition plan</Text>
           </View>
           <View className="bg-green-100 px-3 py-1 rounded-full">
             <Text className="text-green-700 font-medium text-xs">Active</Text>
@@ -190,7 +210,7 @@ const MealPlanCard = ({ mealPlan, progress, lastUpdated, onPress }: MealPlanCard
         <View className="flex-row justify-between mb-4">
           <View className="flex-row items-center">
             <MaterialCommunityIcons name="calendar-range" size={16} color="#8A47EB" />
-            <Text className="text-sm text-gray-600 ml-1">7 days</Text>
+            <Text className="text-sm text-gray-600 ml-1">{mealPlan.meal_plan.days.length} days</Text>
           </View>
           <View className="flex-row items-center">
             <MaterialCommunityIcons name="fire" size={16} color="#FF6B6B" />
@@ -199,6 +219,45 @@ const MealPlanCard = ({ mealPlan, progress, lastUpdated, onPress }: MealPlanCard
           <View className="flex-row items-center">
             <MaterialCommunityIcons name="food" size={16} color="#10b981" />
             <Text className="text-sm text-gray-600 ml-1">{totalMeals} meals</Text>
+          </View>
+        </View>
+
+        {/* Today's Meals Preview */}
+        <View className="bg-gray-50 rounded-lg p-3 mb-4">
+          <Text className="text-sm font-medium text-gray-700 mb-2">Today's Meals</Text>
+          <View className="flex-row justify-between">
+            <View className="items-center">
+              <MaterialCommunityIcons 
+                name="coffee" 
+                size={20} 
+                color={hasMealTypes.breakfast ? "#8A47EB" : "#CBD5E1"} 
+              />
+              <Text className="text-xs text-gray-500 mt-1">Breakfast</Text>
+            </View>
+            <View className="items-center">
+              <MaterialCommunityIcons 
+                name="food" 
+                size={20} 
+                color={hasMealTypes.lunch ? "#8A47EB" : "#CBD5E1"} 
+              />
+              <Text className="text-xs text-gray-500 mt-1">Lunch</Text>
+            </View>
+            <View className="items-center">
+              <MaterialCommunityIcons 
+                name="food-turkey" 
+                size={20} 
+                color={hasMealTypes.dinner ? "#8A47EB" : "#CBD5E1"} 
+              />
+              <Text className="text-xs text-gray-500 mt-1">Dinner</Text>
+            </View>
+            <View className="items-center">
+              <MaterialCommunityIcons 
+                name="fruit-cherries" 
+                size={20} 
+                color={hasMealTypes.snack ? "#8A47EB" : "#CBD5E1"} 
+              />
+              <Text className="text-xs text-gray-500 mt-1">Snacks</Text>
+            </View>
           </View>
         </View>
         
@@ -210,6 +269,27 @@ const MealPlanCard = ({ mealPlan, progress, lastUpdated, onPress }: MealPlanCard
           />
         </View>
         <Text className="text-gray-500 text-sm mt-2">Last updated {lastUpdated}</Text>
+
+        {/* Grocery List Preview */}
+        {mealPlan.grocery_list.length > 0 && (
+          <View className="mt-4 pt-4 border-t border-gray-100">
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Shopping List ({mealPlan.grocery_list.length} items)
+            </Text>
+            <View className="flex-row flex-wrap">
+              {mealPlan.grocery_list.slice(0, 3).map((item, index) => (
+                <View key={item.grocery_id} className="bg-purple-50 rounded-full px-3 py-1 mr-2 mb-2">
+                  <Text className="text-purple-700 text-xs">{item.name}</Text>
+                </View>
+              ))}
+              {mealPlan.grocery_list.length > 3 && (
+                <View className="bg-purple-50 rounded-full px-3 py-1 mr-2 mb-2">
+                  <Text className="text-purple-700 text-xs">+{mealPlan.grocery_list.length - 3} more</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );

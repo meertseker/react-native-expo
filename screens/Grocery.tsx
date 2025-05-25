@@ -117,12 +117,6 @@ const Grocery = () => {
           <Text className="text-gray-500 text-center">
             Create a meal plan to automatically generate your shopping list with all the ingredients you need.
           </Text>
-          <TouchableOpacity 
-            className="bg-[#8A47EB] px-6 py-3 rounded-lg mt-6"
-            onPress={() => {/* Navigate to meal plan creation */}}
-          >
-            <Text className="text-white font-semibold">Create Meal Plan</Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

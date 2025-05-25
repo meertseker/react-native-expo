@@ -1,69 +1,66 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { useUser, useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useNavigation } from '@react-navigation/native';
 
-const Settings = () => {
-  const { signOut } = useAuth();
+interface SettingsItemProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress?: () => void;
+}
+
+const SettingsItem: React.FC<SettingsItemProps> = ({ icon, title, subtitle, onPress }) => (
+  <TouchableOpacity 
+    className="flex-row items-center p-4 border-b border-gray-100"
+    onPress={onPress}
+  >
+    <View className="w-10 h-10 bg-purple-50 rounded-lg items-center justify-center mr-3">
+      <Ionicons name={icon} size={20} color="#8A47EB" />
+    </View>
+    <View className="flex-1">
+      <Text className="text-gray-900 font-medium">{title}</Text>
+      <Text className="text-gray-500 text-sm">{subtitle}</Text>
+    </View>
+    <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+  </TouchableOpacity>
+);
+
+export default function Settings() {
   const { user } = useUser();
+  const { signOut } = useAuth();
+  const navigation = useNavigation();
 
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => signOut() }
-      ]
-    );
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
-
-  const SettingsItem = ({ icon, title, subtitle, onPress, showArrow = true }: any) => (
-    <TouchableOpacity 
-      className="flex-row items-center py-4 px-4 bg-white border-b border-gray-100"
-      onPress={onPress}
-    >
-      <View className="w-8 h-8 bg-gray-100 rounded-full items-center justify-center mr-3">
-        <Ionicons name={icon} size={18} color="#6b7280" />
-      </View>
-      <View className="flex-1">
-        <Text className="text-base font-medium text-gray-900">{title}</Text>
-        {subtitle && <Text className="text-sm text-gray-500 mt-1">{subtitle}</Text>}
-      </View>
-      {showArrow && <Ionicons name="chevron-forward" size={16} color="#9ca3af" />}
-    </TouchableOpacity>
-  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView className="flex-1">
+      <ScrollView>
         {/* Header */}
-        <View className="px-4 py-6">
+        <View className="p-6 bg-white mb-6">
           <Text className="text-2xl font-bold text-gray-900">Settings</Text>
-        </View>
-
-        {/* Profile Section */}
-        <View className="bg-white mx-4 rounded-xl mb-6 overflow-hidden">
-          <View className="p-4 bg-gradient-to-r from-purple-500 to-blue-500">
-            <View className="flex-row items-center">
-              <View className="w-16 h-16 bg-white rounded-full items-center justify-center mr-4">
-                <Text className="text-xl font-bold text-purple-500">
-                  {user?.firstName?.charAt(0) || 'U'}
-                </Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-xl font-semibold text-white">
-                  {user?.firstName || 'User'} {user?.lastName || ''}
-                </Text>
-                <Text className="text-purple-100">
-                  {user?.emailAddresses[0]?.emailAddress || 'No email'}
-                </Text>
-              </View>
+          <View className="flex-row items-center mt-4">
+            <View className="w-16 h-16 bg-purple-100 rounded-full items-center justify-center mr-4">
+              <Text className="text-2xl text-purple-600 font-semibold">
+                {user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() || '?'}
+              </Text>
+            </View>
+            <View>
+              <Text className="text-lg font-semibold text-gray-900">
+                {user?.firstName || 'User'}
+              </Text>
+              <Text className="text-gray-500">
+                {user?.emailAddresses?.[0]?.emailAddress || 'No email'}
+              </Text>
             </View>
           </View>
-          <TouchableOpacity className="p-4 border-b border-gray-100">
-            <Text className="text-purple-600 font-medium">Edit Profile</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Nutrition Settings */}
@@ -75,6 +72,7 @@ const Settings = () => {
             icon="restaurant" 
             title="Dietary Preferences" 
             subtitle="Manage your dietary restrictions"
+            onPress={() => navigation.navigate('DietaryPreferences' as never)}
           />
           <SettingsItem 
             icon="fitness" 
@@ -90,6 +88,7 @@ const Settings = () => {
             icon="time" 
             title="Meal Timing" 
             subtitle="Set preferred meal times"
+            onPress={() => navigation.navigate('MealTiming' as never)}
           />
         </View>
 
@@ -164,6 +163,4 @@ const Settings = () => {
       </ScrollView>
     </SafeAreaView>
   );
-};
-
-export default Settings;
+}

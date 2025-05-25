@@ -189,9 +189,14 @@ export default function CustomSignUp() {
               </View>
             </TouchableOpacity>
             <Text className="text-gray-600 flex-1 mt-1">
-              I agree to the{' '}
-              <Text className="text-blue-500">Terms of Service</Text> and{' '}
-              <Text className="text-blue-500">Privacy Policy</Text>
+              By signing up, you agree to our{' '}
+              <Text className="text-[#8A47EB] font-semibold">
+                Terms of Service
+              </Text>
+              {' '}and{' '}
+              <Text className="text-[#8A47EB] font-semibold">
+                Privacy Policy
+              </Text>
             </Text>
           </View>
  
@@ -270,10 +275,15 @@ export default function CustomSignUp() {
  
       {/* Login Link */}
       <View className="mt-8 flex-row justify-center">
-        <Text className="text-gray-600">Already have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text className="text-blue-500 font-medium">Sign In</Text>
-        </TouchableOpacity>
+        <Text className="text-gray-600">
+          Already have an account?{' '}
+          <Text 
+            className="text-[#8A47EB] font-semibold"
+            onPress={() => navigation.navigate('Login')}
+          >
+            Sign in here
+          </Text>
+        </Text>
       </View>
     </View>
   );

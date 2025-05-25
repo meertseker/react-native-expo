@@ -354,8 +354,8 @@ export default function MealScanner() {
         <View className="flex-1 justify-center items-center px-6">
           <MaterialCommunityIcons name="camera-plus" size={80} color="#8A47EB" />
           <Text className="text-white text-2xl font-bold mt-4 mb-2">Scan Your Meal</Text>
-          <Text className="text-gray-400 text-center mb-8">
-            Take a photo of your meal to automatically track calories and nutrition
+          <Text className="text-gray-500 text-center mb-6">
+            Point your camera at food to get instant nutrition analysis and meal suggestions. We&apos;ll help you make healthier choices!
           </Text>
 
           <TouchableOpacity 

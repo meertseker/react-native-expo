@@ -52,7 +52,7 @@ export default function CookingSkills() {
             Cooking Experience
           </Text>
           <Text className="text-gray-600">
-            Help us understand your cooking comfort level to suggest appropriate recipes.
+            This helps us suggest recipes that match your comfort level in the kitchen. Don&apos;t worry, you can always level up!
           </Text>
         </View>
 

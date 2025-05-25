@@ -10,9 +10,10 @@ npm-debug.*
 *.orig.*
 web-build/
 backend/myvenv/
+backend/venv/
 backend/__pycache__/
-/backend
-
+backend/**/*.pyc
+backend/**/__pycache__/
 
 ios
 android
